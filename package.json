@@ -1,0 +1,5 @@
+{
+  "name": "wetnork",
+  "private": true,
+  "description": "Dependencies + scripts (dev, build, lint, test). Filled in when we run create-next-app and add: @supabase/ssr, @supabase/supabase-js, @anthropic-ai/sdk, zod, daisyui, framer-motion, server-only."
+}

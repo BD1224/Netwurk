@@ -1,0 +1,4 @@
+-- Creates the database structure (no data). Run with `supabase db push`.
+-- 1. contacts table: person fields copied from a search result + the user's status and notes.
+-- 2. RLS policies: a user can only select/insert/update/delete rows where user_id = auth.uid().
+-- User accounts live in Supabase Auth (auth.users), so there is no users table.

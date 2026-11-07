@@ -1,0 +1,2 @@
+// TypeScript settings for the whole project.
+// Key setting: path alias "@/*" -> "src/*" so imports look like "@/types".

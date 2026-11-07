@@ -1,0 +1,5 @@
+# Files git should not track: node_modules, .next build output, secrets.
+node_modules/
+.next/
+.env*.local
+.vercel/
