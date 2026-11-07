@@ -5,7 +5,7 @@ Find people to network with → research them → save the ones you want as cont
 **Target users:** job seekers and/or people looking to network.
 **Principle:** minimal is better.
 
-**Stack:** Next.js (App Router, TS) · Supabase (Postgres + Auth) · Tailwind + DaisyUI · Framer Motion · Anthropic TS SDK (`@anthropic-ai/sdk`) · Zod · deployed on Vercel
+**Stack:** Next.js 16 (App Router, TS) · Supabase (Postgres + Auth) · Tailwind v4 (tokens in `globals.css`, shadcn-style `cn()` helper) · Motion (`motion/react`) · Anthropic TS SDK (`@anthropic-ai/sdk`) · Zod · deployed on Vercel
 
 **Integrations:** Supabase and the Claude API. The Claude API's built-in web search / web fetch tools do all the research, including reading LinkedIn, GitHub, university and company pages.
 
@@ -15,9 +15,9 @@ Find people to network with → research them → save the ones you want as cont
 
 | Stage | What happens | Where |
 |---|---|---|
-| 1. Specify | User fills in filters: companies, roles, states, universities, research areas, free text | `SearchForm.tsx` |
+| 1. Specify | User types into five fields: title, company, university, location, research | `FilterBar.tsx` |
 | 2. Find + enrich | An orchestrator agent finds **up to 20** people (fewer is OK). Worker agents research each person in parallel. **Nothing is written to the database.** | `src/services/` |
-| 3. Display + save | Results stream into a **spreadsheet-style table** (DaisyUI `table`). Only rows the user clicks **Save** on go to Supabase. That's their contact book for future logins. | `/search`, `/contacts` |
+| 3. Display + save | Results stream in as **person cards** (Discover page). Only cards the user clicks **+** on go to Supabase. That's their contact book for future logins. | `/search`, `/contacts` |
 
 Search results live only in the browser. Refreshing or leaving the page clears them, so anyone worth keeping should be saved.
 
@@ -53,7 +53,7 @@ wetNork/                            # project root (name may change)
 ├── tests/
 │   └── unit/schemas.test.ts        # Zod schema tests
 └── src/
-    ├── middleware.ts               # sends logged-out users to /login
+    ├── proxy.ts                    # (Next 16 name for middleware) sends logged-out users to /login
     ├── app/                        # ROUTES: each folder = a URL
     │   ├── layout.tsx              # DaisyUI theme, navbar
     │   ├── page.tsx                # redirect → /search
@@ -66,10 +66,10 @@ wetNork/                            # project root (name may change)
     │   └── api/search/route.ts     # POST: runs a search, streams results back
     ├── actions/                    # ← server functions the UI calls (frontend⇄backend contract)
     │   └── contacts.actions.ts
-    ├── components/                 # UI only (DaisyUI + Framer Motion)
-    │   ├── search/   SearchForm.tsx, ResultsTable.tsx
-    │   ├── contacts/ ContactsTable.tsx, NotesModal.tsx, StatusBadge.tsx
-    │   └── shared/   EmailBadge.tsx, Navbar.tsx
+    ├── components/                 # UI only (Tailwind + Motion)
+    │   ├── search/   Discover, FilterBar, NetworkBackground, PersonCard, ...
+    │   ├── contacts/ ContactBook, ContactList, ContactRow, ContactDetail, TalkingPoints, FilterChips
+    │   └── shared/   Header, Toast, IllustratedAvatar, AnimatedTitle, icons
     ├── hooks/
     │   └── useSearch.ts            # calls /api/search, adds rows to the table as they arrive
     ├── types/                      # ← SHARED TYPES (frontend + backend)
@@ -110,6 +110,7 @@ contacts (
   -- user's own fields
   status text default 'to_contact',  -- to_contact | reached_out | replied | met
   notes text,
+  last_contacted date,               -- null = "To reach out"
   created_at timestamptz default now()
 )
 -- RLS: each user can only read/write rows where user_id = auth.uid()
@@ -123,26 +124,29 @@ User accounts are stored by Supabase Auth (`auth.users`), so we don't create a u
 **Shared types (`src/types/index.ts`)**
 | Type | Shape |
 |---|---|
-| `SearchCriteria` | `{ companies?, roles?, states?, universities?, researchAreas?, freeText? }` |
+| `SearchCriteria` | `{ title?, company?, university?, location?, research? }` (at least one) |
 | `EmailStatus` | `'confirmed' \| 'guessed'` |
 | `PersonProfile` | one search result (the person fields above) |
 | `ContactStatus` | `'to_contact' \| 'reached_out' \| 'replied' \| 'met'` |
-| `Contact` | `PersonProfile & { id, status, notes, createdAt }` |
-| `SearchEvent` | `{type:'person', person}` · `{type:'done', count}` · `{type:'error', message}` |
+| `Contact` | `PersonProfile & { id, status, notes, created_at }` |
+| `SearchEvent` (NDJSON, one per line) | `{type:'step', step: 0-3}` · `{type:'found', count}` · `{type:'person', person}` · `{type:'done', count}` · `{type:'error', message}` |
 
 **Search (streaming API route)**
 | Call | Returns |
 |---|---|
 | `POST /api/search` with `SearchCriteria` | a stream of `SearchEvent`s |
-| `useSearch()` hook (wraps the call above) | `{ runSearch(criteria), people: PersonProfile[], running, error }` |
+| `useSearch()` hook (wraps the call above) | `{ runSearch(criteria), reset(), status, running, people, step, total, error }` |
 
 **Contacts (server actions in `contacts.actions.ts`)**
 | Function | Returns |
 |---|---|
 | `saveContact(person: PersonProfile)` | `Contact` |
 | `listContacts()` | `Contact[]` |
-| `updateContact(id, { notes?, status? })` | `Contact` |
+| `updateContact(id, { notes?, status?, last_contacted? })` | `Contact` |
 | `removeContact(id)` | `void` |
+| `countContacts()` | `number` (header badge) |
+
+Until Supabase keys are set, these actions use an in-memory mock store (`src/services/mock/contactsStore.ts`), reset on server restart.
 
 **Backend-only:** `runSearch()`, `findCandidates()`, `researchPerson()`.
 
@@ -167,7 +171,8 @@ User accounts are stored by Supabase Auth (`auth.users`), so we don't create a u
 ## Decisions
 - Auth: Supabase Auth (magic link)
 - Up to 20 results per search; fewer is OK
-- Public info only, but any public source is fair game (LinkedIn included)
+- Public info only, via search APIs and public APIs (e.g. GitHub REST). **No LinkedIn scraping.**
+- Search steps shown in the UI: Web search → GitHub → Google Scholar → Checking emails
 - Email: `confirmed` if stated explicitly in a source, otherwise `guessed`
 - Search results are **not** stored. Only saved contacts go to Supabase.
 - Models: Sonnet 5.5 (Haiku 5.5 to try for researchers); no Opus

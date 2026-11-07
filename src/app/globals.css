@@ -1,1 +1,60 @@
-/* Global styles. Imports Tailwind and enables DaisyUI (@plugin "daisyui") and its theme(s). */
+/* Global styles: Tailwind v4 + design tokens. Use as e.g. bg-surface, text-muted, border-line, bg-accent-soft. */
+@import "tailwindcss";
+
+@theme {
+  --color-canvas: #fafafa;
+  --color-ink: #09090b;
+  --color-muted: #52525b;
+  --color-subtle: #71717a;
+  --color-line: #e4e4e7;
+  --color-surface: #ffffff;
+  --color-soft: #f4f4f5;
+  --color-accent: #4f46e5;
+  --color-accent-soft: #eef2ff;
+  --color-accent-border: #a5b4fc;
+  --color-accent-light: #818cf8;
+
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
+
+  --breakpoint-bar: 860px;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  body {
+    background-color: var(--color-canvas);
+    background-image: radial-gradient(var(--color-line) 1px, transparent 1px);
+    background-size: 24px 24px;
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.shimmer {
+  background: linear-gradient(90deg, var(--color-soft) 25%, #ececef 50%, var(--color-soft) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .shimmer {
+    animation: none;
+  }
+}

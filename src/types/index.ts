@@ -1,3 +1,97 @@
 // Shared types used by BOTH frontend and backend (Zod schemas + inferred TS types):
 // SearchCriteria, EmailStatus, PersonProfile, ContactStatus, Contact, SearchEvent.
-// PersonProfile fields are placeholders until the user defines the spreadsheet columns.
+// Field names are snake_case so they map 1:1 onto the `contacts` table columns.
+import { z } from "zod";
+
+// ---------- Search input (the five typed fields on the filter bar) ----------
+
+const filterText = z.string().trim().max(120).optional();
+
+export const SearchCriteriaSchema = z
+  .object({
+    title: filterText,
+    company: filterText,
+    university: filterText,
+    location: filterText,
+    research: filterText,
+  })
+  .refine((c) => Object.values(c).some((v) => v && v.length > 0), {
+    message: "Fill at least one field",
+  });
+export type SearchCriteria = z.infer<typeof SearchCriteriaSchema>;
+export type SearchField = keyof SearchCriteria;
+
+// ---------- Person (one search result) ----------
+
+export const EmailStatusSchema = z.enum(["confirmed", "guessed"]);
+export type EmailStatus = z.infer<typeof EmailStatusSchema>;
+
+const optionalText = z.string().nullable().default(null);
+// The DB columns are nullable text[]; the app always sees an array.
+const textList = z
+  .array(z.string())
+  .nullish()
+  .transform((v) => v ?? []);
+
+export const PersonProfileSchema = z.object({
+  full_name: z.string().min(1),
+  title: optionalText,
+  company: optionalText,
+  university: optionalText,
+  location: optionalText,
+  email: optionalText,
+  email_status: EmailStatusSchema.nullable().default(null),
+  linkedin_url: optionalText,
+  github_url: optionalText,
+  personal_site: optionalText,
+  research_areas: textList,
+  talking_points: optionalText,
+  sources: textList,
+});
+export type PersonProfile = z.infer<typeof PersonProfileSchema>;
+
+// ---------- Saved contact (a row in `contacts`) ----------
+
+export const ContactStatusSchema = z.enum(["to_contact", "reached_out", "replied", "met"]);
+export type ContactStatus = z.infer<typeof ContactStatusSchema>;
+
+/** A calendar date, "YYYY-MM-DD" (Postgres `date`). */
+export const DateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD");
+
+export const ContactSchema = PersonProfileSchema.extend({
+  id: z.string().uuid(),
+  status: ContactStatusSchema,
+  notes: z.string().nullable(),
+  /** null = never contacted ("To reach out"). */
+  last_contacted: DateOnlySchema.nullable().default(null),
+  created_at: z.string(),
+});
+export type Contact = z.infer<typeof ContactSchema>;
+
+/** The fields a user may edit on a saved contact. */
+export const ContactUpdateSchema = z
+  .object({
+    notes: z.string().max(5000).nullable().optional(),
+    status: ContactStatusSchema.optional(),
+    last_contacted: DateOnlySchema.nullable().optional(),
+  })
+  .strict();
+export type ContactUpdate = z.infer<typeof ContactUpdateSchema>;
+
+// ---------- Streaming events from POST /api/search ----------
+// The route sends newline-delimited JSON (NDJSON): one SearchEvent per line.
+
+/** The four progress steps shown under the filter bar, in order. */
+export const SEARCH_STEPS = ["Web search", "GitHub", "Google Scholar", "Checking emails"] as const;
+
+export const SearchEventSchema = z.discriminatedUnion("type", [
+  /** Step `step` is now running; every step before it is done. */
+  z.object({ type: z.literal("step"), step: z.number().int().min(0).max(SEARCH_STEPS.length - 1) }),
+  /** How many candidates the agent is researching (sizes the skeleton cards). */
+  z.object({ type: z.literal("found"), count: z.number().int().nonnegative() }),
+  z.object({ type: z.literal("person"), person: PersonProfileSchema }),
+  /** Every step is done; `count` people were sent. */
+  z.object({ type: z.literal("done"), count: z.number().int().nonnegative() }),
+  z.object({ type: z.literal("error"), message: z.string() }),
+]);
+export type SearchEvent = z.infer<typeof SearchEventSchema>;
