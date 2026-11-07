@@ -63,15 +63,14 @@ wetNork/                            # project root (name may change)
     │   │   ├── layout.tsx          # shared navbar + login check
     │   │   ├── search/page.tsx     # /search   FEATURE 1: filter form + live results table
     │   │   └── contacts/page.tsx   # /contacts FEATURE 2: saved contacts table, notes edited in a modal
-    │   └── api/search/route.ts     # POST: runs a search, streams results back
-    ├── actions/                    # ← server functions the UI calls (frontend⇄backend contract)
-    │   └── contacts.actions.ts
+    │   └── api/search/route.ts     # POST: checks login, runs a search, streams results back
     ├── components/                 # UI only (DaisyUI + Framer Motion)
     │   ├── search/   SearchForm.tsx, ResultsTable.tsx
     │   ├── contacts/ ContactsTable.tsx, NotesModal.tsx, StatusBadge.tsx
     │   └── shared/   EmailBadge.tsx, Navbar.tsx
-    ├── hooks/
-    │   └── useSearch.ts            # calls /api/search, adds rows to the table as they arrive
+    ├── hooks/                      # ← how the UI gets data (frontend⇄backend contract)
+    │   ├── useSearch.ts            # browser → /api/search (server) → Claude
+    │   └── useContacts.ts          # browser → Supabase directly (public key + RLS)
     ├── types/                      # ← SHARED TYPES (frontend + backend)
     │   ├── index.ts                # Zod schemas + TS types
     │   └── database.types.ts       # generated from Supabase: `supabase gen types typescript`
@@ -83,11 +82,24 @@ wetNork/                            # project root (name may change)
     │   └── runSearch.ts            # runs both stages, yields each person as they finish
     └── lib/
         ├── anthropic.ts            # Anthropic SDK client (server only)
-        ├── supabase/client.ts      # browser client
-        └── supabase/server.ts      # server client (auth cookies)
+        ├── supabase/client.ts      # browser client (used by useContacts, login)
+        └── supabase/server.ts      # server client (middleware + /api/search login check)
 ```
 
-**Boundary rule:** `components/` and `hooks/` import only from `types/`, `actions/`, `hooks/` and `lib/supabase/client.ts`. `services/` is server-only. A wrong import fails the build.
+**How the browser reaches data:**
+```
+hooks/useSearch.ts   ──▶ app/api/search/route.ts ──▶ services/ ──▶ Claude API   (server: holds the secret Claude key)
+hooks/useContacts.ts ──▶ Supabase                                               (browser: public key, RLS protects rows)
+```
+
+**Boundary rule:** `components/` and `hooks/` import only from `types/`, `hooks/` and `lib/supabase/client.ts`. `services/` and `lib/anthropic.ts` are server-only (`import "server-only"`). A wrong import fails the build.
+
+**Keys (`.env.local`, never committed; on Vercel, set in Environment Variables):**
+| Key | Used by | Visible to users? |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | server only | no |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | browser | yes (fine, because RLS protects the data) |
+| Supabase service-role key | not used | n/a |
 
 ---
 
@@ -136,13 +148,13 @@ User accounts are stored by Supabase Auth (`auth.users`), so we don't create a u
 | `POST /api/search` with `SearchCriteria` | a stream of `SearchEvent`s |
 | `useSearch()` hook (wraps the call above) | `{ runSearch(criteria), people: PersonProfile[], running, error }` |
 
-**Contacts (server actions in `contacts.actions.ts`)**
-| Function | Returns |
+**Contacts (`useContacts()` hook, calls Supabase directly)**
+| Returns | Purpose |
 |---|---|
-| `saveContact(person: PersonProfile)` | `Contact` |
-| `listContacts()` | `Contact[]` |
-| `updateContact(id, { notes?, status? })` | `Contact` |
-| `removeContact(id)` | `void` |
+| `contacts: Contact[]`, `loading`, `error` | the user's contact book |
+| `saveContact(person: PersonProfile)` | insert a row |
+| `updateContact(id, { notes?, status? })` | edit notes / status |
+| `removeContact(id)` | delete a row |
 
 **Backend-only:** `runSearch()`, `findCandidates()`, `researchPerson()`.
 
@@ -170,6 +182,7 @@ User accounts are stored by Supabase Auth (`auth.users`), so we don't create a u
 - Public info only, but any public source is fair game (LinkedIn included)
 - Email: `confirmed` if stated explicitly in a source, otherwise `guessed`
 - Search results are **not** stored. Only saved contacts go to Supabase.
+- Contacts: the browser calls Supabase directly (no server step). Only the search goes through the server.
 - Models: Sonnet 5.5 (Haiku 5.5 to try for researchers); no Opus
 - Vercel; a slow search is acceptable
 - No outreach drafting; no skipping of already-saved people

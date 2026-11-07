@@ -1,1 +1,1 @@
-// Supabase client for the BROWSER (login/logout on the login page and Navbar).
+// Supabase client for the BROWSER (public anon key). Used by useContacts and for login/logout.

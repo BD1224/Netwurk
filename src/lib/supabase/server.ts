@@ -1,2 +1,2 @@
-// Supabase client for the SERVER (server actions, middleware). Reads the login cookie
-// so queries run as the logged-in user.
+// Supabase client for the SERVER. Reads the login cookie so middleware and /api/search
+// can check who the logged-in user is.
