@@ -2,12 +2,77 @@ import "server-only";
 // In-memory contact book used until Supabase is configured, so Discover's Save and the
 // contact book work end to end. One shared book, reset whenever the server restarts.
 // People, orgs and links are made up; URLs point at example.com.
-import type { Contact, ContactUpdate, PersonProfile } from "@/types";
+import type { Contact, ContactDetails, ContactUpdate, PersonProfile } from "@/types";
 
 const link = (kind: string, slug: string) => `https://example.com/${kind}/${slug}`;
+const DAY = 24 * 60 * 60 * 1000;
+const ago = (days: number) => new Date(Date.now() - days * DAY).toISOString();
+
+const EMPTY_DETAILS: ContactDetails = { repos: [], papers: [], accolades: [], sources: [] };
+
+// What the search agent found for each seeded contact (the Discover overlay's extra details).
+const SEED_DETAILS: Record<string, Partial<ContactDetails>> = {
+  "6f1c2a4e-1b7d-4c1e-9a51-2d3f4b5c6d01": {
+    repos: [
+      { name: "sparse-retrieval", description: "Fast retrieval for long-context models", language: "Python", stars: 1240, pushed_at: ago(1), url: link("github", "mosei/sparse-retrieval") },
+      { name: "tiny-transformer", description: "A readable transformer in 300 lines", language: "Python", stars: 612, pushed_at: ago(5), url: link("github", "mosei/tiny-transformer") },
+      { name: "eval-kit", description: "Small benchmark harness", language: "Python", stars: 88, pushed_at: ago(14), url: link("github", "mosei/eval-kit") },
+    ],
+    papers: [
+      { title: "Sparse retrieval for long-context language models", venue: "NeurIPS", year: 2025, url: link("papers", "sparse-retrieval") },
+      { title: "Curriculum learning for low-resource speech", venue: "ICASSP", year: 2022, url: link("papers", "curriculum-speech") },
+    ],
+    accolades: ["Conference spotlight paper, 2025", "University dissertation fellowship"],
+    sources: [
+      { label: "Google Scholar", url: link("scholar", "marcus") },
+      { label: "Personal site", url: link("site", "marcus") },
+    ],
+  },
+  "6f1c2a4e-1b7d-4c1e-9a51-2d3f4b5c6d02": {
+    repos: [
+      { name: "motion-a11y", description: "Reduced-motion friendly animation helpers", language: "TypeScript", stars: 402, pushed_at: ago(4), url: link("github", "hanakim/motion-a11y") },
+      { name: "contrast-cli", description: "Check color contrast from the terminal", language: "Rust", stars: 19, pushed_at: ago(30), url: link("github", "hanakim/contrast-cli") },
+    ],
+    papers: [{ title: "Accessible motion in data-dense interfaces", venue: "Design showcase", year: 2022, url: null }],
+    accolades: ["Internal design award, 2024"],
+    sources: [{ label: "Personal site", url: link("site", "hana") }],
+  },
+  "6f1c2a4e-1b7d-4c1e-9a51-2d3f4b5c6d03": {
+    papers: [{ title: "Order-book signals for short-horizon returns", venue: "Working paper", year: 2025, url: link("papers", "order-book") }],
+    accolades: ["Student trading competition organizer"],
+    sources: [{ label: "Club roster", url: link("club", "fintech") }],
+  },
+  "6f1c2a4e-1b7d-4c1e-9a51-2d3f4b5c6d04": {
+    repos: [
+      { name: "precip-diffusion", description: "Diffusion models for rainfall downscaling", language: "Python", stars: 890, pushed_at: ago(1), url: link("github", "smartins/precip-diffusion") },
+      { name: "era5-loader", description: "Fast climate data loader", language: "Python", stars: 120, pushed_at: ago(21), url: link("github", "smartins/era5-loader") },
+    ],
+    papers: [{ title: "Downscaling precipitation forecasts with diffusion models", venue: "ICLR Workshop", year: 2026, url: link("papers", "precip") }],
+    accolades: ["Graduate research fellow", "Best poster, climate + AI workshop 2025"],
+    sources: [{ label: "Google Scholar", url: link("scholar", "sofia") }],
+  },
+  "6f1c2a4e-1b7d-4c1e-9a51-2d3f4b5c6d05": {
+    accolades: ["Startup accelerator demo day, 2025"],
+    sources: [{ label: "Personal site", url: link("site", "aiden") }],
+  },
+  "6f1c2a4e-1b7d-4c1e-9a51-2d3f4b5c6d06": {
+    repos: [
+      { name: "ledger-sim", description: "Double-entry ledger simulator", language: "Ruby", stars: 275, pushed_at: ago(6), url: link("github", "rnovak/ledger-sim") },
+      { name: "rate-limit-kit", description: "Token-bucket rate limiting", language: "Go", stars: 190, pushed_at: ago(14), url: link("github", "rnovak/rate-limit-kit") },
+    ],
+    accolades: ["Internal hackathon winner, 2024"],
+    sources: [{ label: "GitHub", url: link("github", "rnovak") }],
+  },
+};
 
 function seed(): Contact[] {
+  return seedContacts().map((c) => ({ ...c, details: { ...EMPTY_DETAILS, ...SEED_DETAILS[c.id] } }));
+}
+
+function seedContacts(): Contact[] {
   const base = {
+    person_id: null,
+    details: EMPTY_DETAILS,
     status: "to_contact" as const,
     linkedin_url: null,
     github_url: null,
@@ -156,9 +221,19 @@ export const mockContactsStore = {
   count(): number {
     return book().length;
   },
-  insert(person: PersonProfile): Contact {
+  get(id: string): Contact | undefined {
+    return book().find((c) => c.id === id);
+  },
+  /** Search-result ids that are already saved. */
+  personIds(): string[] {
+    return book().flatMap((c) => (c.person_id ? [c.person_id] : []));
+  },
+  insert(person: PersonProfile, extra: { person_id: string | null; details: ContactDetails }): Contact {
+    const existing = extra.person_id && book().find((c) => c.person_id === extra.person_id);
+    if (existing) return existing;
     const contact: Contact = {
       ...person,
+      ...extra,
       id: crypto.randomUUID(),
       status: "to_contact",
       notes: null,

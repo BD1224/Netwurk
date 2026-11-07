@@ -3,7 +3,7 @@ export function SkeletonCard() {
   return (
     <div
       aria-hidden="true"
-      className="flex h-full min-h-[268px] flex-col items-center rounded-[20px] border border-line bg-surface/70 px-4 pt-6 pb-3"
+      className="flex w-full min-h-[268px] flex-col items-center rounded-[20px] border border-line bg-surface/70 px-4 pt-6 pb-3"
     >
       <div className="shimmer size-16 rounded-full" />
       <div className="shimmer mt-4 h-4 w-32 rounded-full" />

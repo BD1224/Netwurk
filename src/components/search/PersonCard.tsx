@@ -1,9 +1,11 @@
 "use client";
 // One search result: initials avatar, name, role lines, up to 2 research tags,
 // link icons, an email-status envelope, and a "+" button that saves to contacts.
+// The avatar + name + role lines form one button that opens the details overlay; the links
+// and "+" sit outside that button, so they never open it.
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
-import type { PersonProfile } from "@/types";
+import type { SearchPerson } from "@/types";
 import {
   CheckIcon,
   GitHubIcon,
@@ -12,29 +14,7 @@ import {
   MailIcon,
   PlusIcon,
 } from "@/components/shared/icons";
-
-// [background, text] pairs; every text color is >= 4.5:1 on its background.
-const AVATAR_COLORS: [string, string][] = [
-  ["#E0E7FF", "#3730A3"],
-  ["#FCE7F3", "#9D174D"],
-  ["#DCFCE7", "#166534"],
-  ["#FEF3C7", "#92400E"],
-  ["#E0F2FE", "#075985"],
-  ["#FAE8FF", "#86198F"],
-];
-
-function initials(name: string) {
-  const parts = name.trim().split(/\s+/);
-  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
-}
-
-function colorFor(name: string) {
-  let h = 0;
-  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  return AVATAR_COLORS[h % AVATAR_COLORS.length];
-}
-
-const joinDot = (...parts: (string | null)[]) => parts.filter(Boolean).join(" · ");
+import { colorFor, initials, joinDot } from "./person-style";
 
 /** Entrance used by the results grid (cards stream in one at a time). */
 export const cardEntrance = {
@@ -43,9 +23,9 @@ export const cardEntrance = {
   transition: { type: "spring" as const, stiffness: 160, damping: 20, mass: 0.9 },
 };
 
-type Props = { person: PersonProfile; saved: boolean; onSave: () => void };
+type Props = { person: SearchPerson; saved: boolean; onSave: () => void; onOpen: () => void };
 
-export function PersonCard({ person, saved, onSave }: Props) {
+export function PersonCard({ person, saved, onSave, onOpen }: Props) {
   const [bg, fg] = colorFor(person.full_name);
   const roleLine = joinDot(person.title, person.company);
   const placeLine = joinDot(person.university, person.location);
@@ -62,23 +42,32 @@ export function PersonCard({ person, saved, onSave }: Props) {
       {...cardEntrance}
       whileHover={{ y: -4, boxShadow: "0 18px 40px -18px rgba(9,9,11,0.22)" }}
       className={cn(
-        "flex h-full flex-col items-center rounded-[20px] border bg-surface px-4 pt-6 pb-3 text-center transition-colors duration-300",
+        "flex w-full flex-col items-center rounded-[20px] border bg-surface px-4 pt-6 pb-3 text-center transition-colors duration-300",
         "shadow-[0_1px_2px_rgba(9,9,11,0.04)]",
         saved ? "border-accent" : "border-line",
       )}
       style={{ transformPerspective: 1000 }}
     >
-      <div
-        className="grid size-16 place-items-center rounded-full text-xl font-semibold"
-        style={{ backgroundColor: bg, color: fg }}
-        aria-hidden="true"
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`View details for ${person.full_name}`}
+        data-person-open={person.id}
+        className="group flex w-full flex-col items-center rounded-2xl focus-visible:outline-offset-4"
       >
-        {initials(person.full_name)}
-      </div>
-
-      <h3 className="mt-3 text-[17px] leading-snug font-semibold">{person.full_name}</h3>
-      {roleLine && <p className="mt-1 text-sm text-muted">{roleLine}</p>}
-      {placeLine && <p className="mt-0.5 text-[13px] text-muted">{placeLine}</p>}
+        <span
+          className="grid size-16 place-items-center rounded-full text-xl font-semibold"
+          style={{ backgroundColor: bg, color: fg }}
+          aria-hidden="true"
+        >
+          {initials(person.full_name)}
+        </span>
+        <span className="mt-3 text-[17px] leading-snug font-semibold transition-colors duration-200 group-hover:text-accent">
+          {person.full_name}
+        </span>
+        {roleLine && <span className="mt-1 text-sm text-muted">{roleLine}</span>}
+        {placeLine && <span className="mt-0.5 text-[13px] text-muted">{placeLine}</span>}
+      </button>
 
       {tags.length > 0 && (
         <ul className="mt-3 flex flex-wrap justify-center gap-1.5" aria-label="Research areas">
@@ -90,6 +79,8 @@ export function PersonCard({ person, saved, onSave }: Props) {
         </ul>
       )}
 
+      {/* Fixed gap, then the footer is pushed to the bottom so icon rows line up across a grid row. */}
+      <span aria-hidden="true" className="h-4 flex-none" />
       <div className="mt-auto flex w-full items-center justify-between border-t border-line pt-3">
         <div className="-ml-2 flex items-center">
           {links.map(({ href, label, Icon }) => (
@@ -104,7 +95,7 @@ export function PersonCard({ person, saved, onSave }: Props) {
               <Icon size={18} />
             </a>
           ))}
-          {person.email && person.email_status && <EmailStatus email={person.email} status={person.email_status} />}
+          {person.email && person.email_status && <EmailStatus status={person.email_status} />}
         </div>
 
         <SaveButton name={person.full_name} saved={saved} onSave={onSave} />
@@ -113,9 +104,10 @@ export function PersonCard({ person, saved, onSave }: Props) {
   );
 }
 
-function EmailStatus({ email, status }: { email: string; status: "confirmed" | "guessed" }) {
+/** Whether an email was found, and how sure we are. The address itself only shows in Contacts. */
+function EmailStatus({ status }: { status: "confirmed" | "guessed" }) {
   const confirmed = status === "confirmed";
-  const label = confirmed ? `Email confirmed: ${email}` : `Email guessed: ${email}`;
+  const label = confirmed ? "Email confirmed" : "Email guessed";
   return (
     <span
       role="img"

@@ -232,7 +232,7 @@ export function ContactBook({ initialContacts }: { initialContacts: Contact[] })
             >
               <p className="m-0 font-serif text-[34px] text-ink italic">No one saved yet</p>
               <Link
-                href="/search"
+                href="/discover"
                 className="inline-flex h-12 items-center gap-2 rounded-full bg-ink px-[22px] text-[15px] font-medium text-white transition-[transform,background-color] duration-200 hover:scale-[1.04] hover:bg-accent motion-reduce:hover:scale-100"
               >
                 Find people

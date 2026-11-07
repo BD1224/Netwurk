@@ -17,7 +17,7 @@ Find people to network with → research them → save the ones you want as cont
 |---|---|---|
 | 1. Specify | User types into five fields: title, company, university, location, research | `FilterBar.tsx` |
 | 2. Find + enrich | An orchestrator agent finds **up to 20** people (fewer is OK). Worker agents research each person in parallel. **Nothing is written to the database.** | `src/services/` |
-| 3. Display + save | Results stream in as **person cards** (Discover page). Only cards the user clicks **+** on go to Supabase. That's their contact book for future logins. | `/search`, `/contacts` |
+| 3. Display + save | Results stream in as **person cards** (Discover page). Only cards the user clicks **+** on go to Supabase. That's their contact book for future logins. | `/discover`, `/contacts` |
 
 Search results live only in the browser. Refreshing or leaving the page clears them, so anyone worth keeping should be saved.
 
@@ -49,29 +49,35 @@ wetNork/                            # project root (name may change)
 │                                   # NEXT_PUBLIC_SUPABASE_ANON_KEY
 ├── public/                         # static assets (logo, favicon)
 ├── supabase/
-│   └── migrations/0001_init.sql    # creates the contacts table + access rules (schema only, no data)
+│   └── migrations/
+│       ├── 0001_init.sql           # creates the contacts table + access rules (schema only, no data)
+│       └── 0002_contact_details.sql # person_id + details jsonb (repos snapshot, papers, accolades, sources)
 ├── tests/
 │   └── unit/schemas.test.ts        # Zod schema tests
 └── src/
-    ├── proxy.ts                    # (Next 16 name for middleware) sends logged-out users to /login
+    ├── proxy.ts                    # (Next 16 name for middleware) signed-out → /signin, signed-in /signin → /discover
     ├── app/                        # ROUTES: each folder = a URL
     │   ├── layout.tsx              # DaisyUI theme, navbar
-    │   ├── page.tsx                # redirect → /search
+    │   ├── page.tsx                # redirect → /discover (landing page goes here later)
     │   ├── globals.css
-    │   ├── login/page.tsx          # /login (Supabase magic link)
+    │   ├── signin/page.tsx         # /signin: Google or email magic link
+    │   ├── auth/callback/route.ts  # swaps the sign-in code for a session → /discover
     │   ├── (app)/                  # group for logged-in pages (not part of the URL)
-    │   │   ├── layout.tsx          # shared navbar + login check
-    │   │   ├── search/page.tsx     # /search   FEATURE 1: filter form + live results table
+    │   │   ├── layout.tsx          # holds the Discover search session across /discover <-> /contacts
+    │   │   ├── discover/page.tsx   # /discover FEATURE 1: filter form + live results
     │   │   └── contacts/page.tsx   # /contacts FEATURE 2: saved contacts table, notes edited in a modal
-    │   └── api/search/route.ts     # POST: runs a search, streams results back
+    │   ├── api/search/route.ts     # POST: runs a search, streams results back
+    │   └── api/people/[id]/details/route.ts  # GET: overlay details (GitHub repos, papers, accolades, sources)
     ├── actions/                    # ← server functions the UI calls (frontend⇄backend contract)
     │   └── contacts.actions.ts
     ├── components/                 # UI only (Tailwind + Motion)
-    │   ├── search/   Discover, FilterBar, NetworkBackground, PersonCard, ...
+    │   ├── search/   Discover, FilterBar, NetworkBackground, PersonCard, PersonDialog, DetailsLists, ...
+    │   ├── auth/     SignInCard, CheckInbox, GoogleMark
     │   ├── contacts/ ContactBook, ContactList, ContactRow, ContactDetail, TalkingPoints, FilterChips
     │   └── shared/   Header, Toast, IllustratedAvatar, AnimatedTitle, icons
     ├── hooks/
-    │   └── useSearch.ts            # calls /api/search, adds rows to the table as they arrive
+    │   ├── useSearch.ts            # calls /api/search, adds rows to the table as they arrive
+    │   └── usePersonDetails.ts     # loads /api/people/[id]/details for the open overlay
     ├── types/                      # ← SHARED TYPES (frontend + backend)
     │   ├── index.ts                # Zod schemas + TS types
     │   └── database.types.ts       # generated from Supabase: `supabase gen types typescript`
@@ -80,7 +86,8 @@ wetNork/                            # project root (name may change)
     │   │   ├── orchestrator.ts     # filters → up to 20 candidates
     │   │   ├── researcher.ts       # one candidate → PersonProfile
     │   │   └── prompts.ts
-    │   └── runSearch.ts            # runs both stages, yields each person as they finish
+    │   ├── runSearch.ts            # runs both stages, yields each person as they finish
+    │   └── personDetails.ts        # overlay details: saved agent data + GitHub REST repos (cached 24h)
     └── lib/
         ├── anthropic.ts            # Anthropic SDK client (server only)
         ├── supabase/client.ts      # browser client
@@ -134,17 +141,19 @@ User accounts are stored by Supabase Auth (`auth.users`), so we don't create a u
 **Search (streaming API route)**
 | Call | Returns |
 |---|---|
-| `POST /api/search` with `SearchCriteria` | a stream of `SearchEvent`s |
+| `POST /api/search` with `SearchCriteria` | a stream of `SearchEvent`s (each person has an `id`) |
+| `GET /api/people/[id]/details` | `PersonDetails`: person, talking_points, repos, papers, accolades, sources |
 | `useSearch()` hook (wraps the call above) | `{ runSearch(criteria), reset(), status, running, people, step, total, error }` |
 
 **Contacts (server actions in `contacts.actions.ts`)**
 | Function | Returns |
 |---|---|
-| `saveContact(person: PersonProfile)` | `Contact` |
+| `saveContact(person: SearchPerson)` | `Contact` (also stores the agent's details; saving twice returns the existing one) |
 | `listContacts()` | `Contact[]` |
 | `updateContact(id, { notes?, status?, last_contacted? })` | `Contact` |
 | `removeContact(id)` | `void` |
-| `countContacts()` | `number` (header badge) |
+| `contactSummary()` | `{ count, personIds }` (header badge + which search results are already saved) |
+| `contactRepos(id)` | `Repo[] \| null` (fresh GitHub repos for the contact panel; null = keep the saved snapshot) |
 
 Until Supabase keys are set, these actions use an in-memory mock store (`src/services/mock/contactsStore.ts`), reset on server restart.
 

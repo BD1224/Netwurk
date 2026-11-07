@@ -9,7 +9,7 @@ export type TitleWord = { text: string; accent?: boolean };
 
 const container: Variants = {
   hidden: {},
-  shown: { transition: { staggerChildren: 0.08, delayChildren: 0.06 } },
+  shown: (delay: number) => ({ transition: { staggerChildren: 0.08, delayChildren: delay } }),
 };
 
 const word: Variants = {
@@ -23,11 +23,19 @@ const word: Variants = {
   },
 };
 
-export function AnimatedTitle({ words, className }: { words: TitleWord[]; className?: string }) {
+type Props = {
+  words: TitleWord[];
+  className?: string;
+  /** Seconds before the first word starts. */
+  delay?: number;
+};
+
+export function AnimatedTitle({ words, className, delay = 0.06 }: Props) {
   return (
     <motion.h1
       className={cn("font-semibold tracking-[-0.045em]", className)}
       style={{ perspective: 800 }}
+      custom={delay}
       variants={container}
       initial="hidden"
       animate="shown"

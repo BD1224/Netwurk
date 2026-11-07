@@ -1,13 +1,19 @@
 "use client";
 // The detail panel for the selected contact. The parent re-keys it per person, so the whole
 // panel re-animates on every selection change and its sections stagger in.
+// Shows the same details as the Discover overlay (repos, papers, accolades, sources), plus
+// the contact book's own tools: copyable talking points, notes, Mark contacted, Remove.
 import { motion, useReducedMotion, type Variants } from "motion/react";
+import { useEffect, useState } from "react";
+import { contactRepos } from "@/actions/contacts.actions";
+import { ExtrasGrid, ResearchAreas, SourceList, toSourceLinks } from "@/components/shared/DetailsLists";
 import { IllustratedAvatar } from "@/components/shared/IllustratedAvatar";
 import { avatarLook } from "@/components/shared/avatar-look";
 import { CheckIcon, GitHubIcon, GlobeIcon, LinkedInIcon, MailIcon } from "@/components/shared/icons";
 import { formatShortDate, todayISO } from "@/lib/dates";
+import { githubUsername } from "@/lib/github";
 import { cn } from "@/lib/utils";
-import type { Contact } from "@/types";
+import type { Contact, Repo } from "@/types";
 import { TalkingPoints } from "./TalkingPoints";
 
 export type NotesStatus = "idle" | "saving" | "saved" | "error";
@@ -55,6 +61,8 @@ export function ContactDetail({ contact, notesStatus, onNotesChange, onMarkConta
     contact.github_url && { href: contact.github_url, label: `${first} on GitHub`, Icon: GitHubIcon },
     contact.personal_site && { href: contact.personal_site, label: `${first}'s website`, Icon: GlobeIcon },
   ].filter((l): l is { href: string; label: string; Icon: typeof GlobeIcon } => Boolean(l));
+  const repos = useLiveRepos(contact);
+  const sources = contact.details.sources.length > 0 ? contact.details.sources : toSourceLinks(contact.sources);
 
   return (
     <motion.article
@@ -151,42 +159,20 @@ export function ContactDetail({ contact, notesStatus, onNotesChange, onMarkConta
         </motion.section>
       )}
 
-      {/* 4. Research + Found via */}
-      {(contact.research_areas.length > 0 || contact.sources.length > 0) && (
-        <motion.section variants={section} className="flex flex-wrap gap-8">
-          {contact.research_areas.length > 0 && (
-            <div className="flex flex-[1_1_200px] flex-col gap-2.5">
-              <h3 className="m-0 text-xs font-semibold text-subtle">Research</h3>
-              <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
-                {contact.research_areas.map((r) => (
-                  <li key={r} className="rounded-full bg-soft px-3 py-1.5 text-[13px] text-[#27272A]">
-                    {r}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {contact.sources.length > 0 && (
-            <div className="flex flex-[1_1_200px] flex-col gap-2.5">
-              <h3 className="m-0 text-xs font-semibold text-subtle">Found via</h3>
-              <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
-                {contact.sources.map((s) => (
-                  <li
-                    key={s}
-                    title={s}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-[13px] text-[#3F3F46]"
-                  >
-                    <span aria-hidden="true" className="size-1.5 rounded-full bg-accent-border" />
-                    {sourceLabel(s)}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </motion.section>
+      {/* 4. GitHub | Research + Accolades (same as the Discover overlay) */}
+      <motion.div variants={section}>
+        <ExtrasGrid repos={repos} papers={contact.details.papers} accolades={contact.details.accolades} />
+      </motion.div>
+
+      {/* 5. Research areas + Sources */}
+      {(contact.research_areas.length > 0 || sources.length > 0) && (
+        <motion.div variants={section} className="flex flex-wrap gap-7">
+          {contact.research_areas.length > 0 && <ResearchAreas areas={contact.research_areas} />}
+          {sources.length > 0 && <SourceList sources={sources} />}
+        </motion.div>
       )}
 
-      {/* 5. Notes + footer actions */}
+      {/* 6. Notes + footer actions */}
       <motion.section variants={section} className="flex flex-col gap-2.5 border-t border-soft pt-6">
         <div className="flex items-baseline justify-between gap-3">
           <label htmlFor={`notes-${contact.id}`} className="text-xs font-semibold text-subtle">
@@ -248,11 +234,27 @@ export function ContactDetail({ contact, notesStatus, onNotesChange, onMarkConta
   );
 }
 
-/** Sources are labels ("GitHub") or URLs; show URLs as their hostname. */
-function sourceLabel(source: string) {
-  try {
-    return new URL(source).hostname.replace(/^www\./, "");
-  } catch {
-    return source;
-  }
+/**
+ * The repos saved with the contact, swapped for a fresh list from GitHub when the contact
+ * has a github.com profile. Shows shimmer rows only if there's nothing saved to show meanwhile.
+ */
+function useLiveRepos(contact: Contact): Repo[] | "loading" {
+  const saved = contact.details.repos;
+  const hasProfile = githubUsername(contact.github_url) !== null;
+  const [live, setLive] = useState<{ repos: Repo[] | null } | null>(null);
+
+  useEffect(() => {
+    if (!hasProfile) return;
+    let cancelled = false;
+    contactRepos(contact.id)
+      .then((repos) => !cancelled && setLive({ repos }))
+      .catch(() => !cancelled && setLive({ repos: null }));
+    return () => {
+      cancelled = true;
+    };
+  }, [contact.id, hasProfile]);
+
+  if (live?.repos) return live.repos;
+  if (hasProfile && !live && saved.length === 0) return "loading";
+  return saved;
 }

@@ -3,13 +3,13 @@
 // runSearch(criteria) POSTs to /api/search and reads the NDJSON stream (one SearchEvent per line),
 // tracking step progress and adding each person to `people` as they arrive.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { SEARCH_STEPS, SearchEventSchema, type PersonProfile, type SearchCriteria } from "@/types";
+import { SEARCH_STEPS, SearchEventSchema, type SearchCriteria, type SearchPerson } from "@/types";
 
 export type SearchStatus = "idle" | "running" | "done" | "error";
 
 export function useSearch() {
   const [status, setStatus] = useState<SearchStatus>("idle");
-  const [people, setPeople] = useState<PersonProfile[]>([]);
+  const [people, setPeople] = useState<SearchPerson[]>([]);
   /** Index of the running step; steps before it are done. SEARCH_STEPS.length = all done. -1 = not started. */
   const [step, setStep] = useState(-1);
   /** Number of candidates being researched, once the agent knows it. */

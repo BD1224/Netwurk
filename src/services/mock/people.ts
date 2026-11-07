@@ -1,12 +1,13 @@
 import "server-only";
 // Made-up people for the stubbed search. Names, orgs and links are fictional;
 // URLs point at example.com so nothing links to a real profile.
-import type { PersonProfile } from "@/types";
+import type { SearchPerson } from "@/types";
 
 const link = (kind: string, slug: string) => `https://example.com/${kind}/${slug}`;
 
-export const MOCK_PEOPLE: PersonProfile[] = [
+export const MOCK_PEOPLE: SearchPerson[] = [
   {
+    id: "mock-maya-okafor",
     full_name: "Maya Okafor",
     title: "ML Engineer",
     company: "Northwind Robotics",
@@ -22,6 +23,7 @@ export const MOCK_PEOPLE: PersonProfile[] = [
     sources: [link("talks", "sim-to-real")],
   },
   {
+    id: "mock-daniel-reyes",
     full_name: "Daniel Reyes",
     title: "Research Scientist",
     company: "Helio Labs",
@@ -37,6 +39,7 @@ export const MOCK_PEOPLE: PersonProfile[] = [
     sources: [],
   },
   {
+    id: "mock-priya-natarajan",
     full_name: "Priya Natarajan",
     title: "PhD Candidate",
     company: null,
@@ -52,6 +55,7 @@ export const MOCK_PEOPLE: PersonProfile[] = [
     sources: [link("lab", "embodied")],
   },
   {
+    id: "mock-tom-lindqvist",
     full_name: "Tom Lindqvist",
     title: "Senior ML Engineer",
     company: "Cartograph",
@@ -67,6 +71,7 @@ export const MOCK_PEOPLE: PersonProfile[] = [
     sources: [],
   },
   {
+    id: "mock-aisha-bello",
     full_name: "Aisha Bello",
     title: "Robotics Engineer",
     company: "Northwind Robotics",
@@ -82,6 +87,7 @@ export const MOCK_PEOPLE: PersonProfile[] = [
     sources: [],
   },
   {
+    id: "mock-kenji-watanabe",
     full_name: "Kenji Watanabe",
     title: "Assistant Professor",
     company: null,
@@ -97,6 +103,7 @@ export const MOCK_PEOPLE: PersonProfile[] = [
     sources: [link("faculty", "kenji")],
   },
   {
+    id: "mock-sofia-marchetti",
     full_name: "Sofia Marchetti",
     title: "ML Engineer",
     company: "Helio Labs",
@@ -112,6 +119,7 @@ export const MOCK_PEOPLE: PersonProfile[] = [
     sources: [],
   },
   {
+    id: "mock-owen-brightwater",
     full_name: "Owen Brightwater",
     title: "Founding Engineer",
     company: "Pallet & Co",

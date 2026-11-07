@@ -111,3 +111,42 @@ export const CopyIcon = (p: IconProps) => (
     <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
   </Icon>
 );
+
+export const LockIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="5" y="11" width="14" height="10" rx="2" />
+    <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+  </Icon>
+);
+
+export const XIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M6 6l12 12M18 6L6 18" />
+  </Icon>
+);
+
+export const StarIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" />
+  </Icon>
+);
+
+export const PaperIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4 4h12l4 4v12H4z" />
+    <path d="M8 12h8M8 16h5" />
+  </Icon>
+);
+
+export const AwardIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="9" r="6" />
+    <path d="M8.5 14l-1.5 7 5-3 5 3-1.5-7" />
+  </Icon>
+);
+
+export const ArrowUpRightIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M7 17L17 7M9 7h8v8" />
+  </Icon>
+);

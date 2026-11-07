@@ -1,32 +1,77 @@
 "use client";
 // The Discover page: idle -> searching -> results.
-// Owns the filter values, saved-card state, contact count and toast; useSearch owns the stream.
+// Owns the saved-card state, contact count and toast. The search itself (filters, results,
+// progress) lives in SearchSession, so it's still here after a trip to Contacts.
+// Clicking a card opens the details overlay and adds ?person={id} to the URL (shallow), so
+// Back closes it and the link can be shared.
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { saveContact } from "@/actions/contacts.actions";
 import { Header } from "@/components/shared/Header";
 import { Toast, type ToastMessage } from "@/components/shared/Toast";
-import { useSearch } from "@/hooks/useSearch";
-import { SEARCH_STEPS, type PersonProfile, type SearchCriteria } from "@/types";
+import { usePersonDetails } from "@/hooks/usePersonDetails";
+import { SEARCH_STEPS, type SearchCriteria, type SearchPerson } from "@/types";
 import { EMPTY_FILTERS, FilterBar, type FilterValues } from "./FilterBar";
 import { Headline } from "./Headline";
 import { NetworkBackground, type NetworkMode } from "./NetworkBackground";
 import { FOUND, FOUND_PER_STEP } from "./network-data";
 import { PersonCard } from "./PersonCard";
+import { PersonDialog } from "./PersonDialog";
 import { ResultsHeader } from "./ResultsHeader";
+import { useSearchSession } from "./SearchSession";
 import { SearchSteps } from "./SearchSteps";
 import { SkeletonCard } from "./SkeletonCard";
 
 const fade = { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -8 } };
 
-export function Discover({ initialContactCount }: { initialContactCount: number }) {
-  const search = useSearch();
-  const [filters, setFilters] = useState<FilterValues>(EMPTY_FILTERS);
-  const [saved, setSaved] = useState<Set<number>>(() => new Set());
+type Props = {
+  initialContactCount: number;
+  /** Search-result ids already in the contact book (from the server). */
+  initialSavedIds: string[];
+};
+
+export function Discover({ initialContactCount, initialSavedIds }: Props) {
+  const { search, filters, setFilters } = useSearchSession();
+  // Saved = already in the contact book, so it carries across searches and page visits.
+  const [saved, setSaved] = useState<Set<string>>(() => new Set(initialSavedIds));
   const [contactCount, setContactCount] = useState(initialContactCount);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
   const wide = useMediaQuery("(min-width: 860px)");
+
+  // ---------- Details overlay, driven by ?person={id} ----------
+  const openId = useSearchParams().get("person");
+  const details = usePersonDetails(openId);
+  // From the results if we have them; a shared link with no results waits for the details.
+  const openPerson =
+    search.people.find((p) => p.id === openId) ?? (details?.status === "ready" ? details.data.person : null);
+  // True when this page added the ?person entry, so closing can just go Back.
+  const pushedRef = useRef(false);
+
+  function openDetails(person: SearchPerson) {
+    const params = new URLSearchParams(window.location.search);
+    params.set("person", person.id);
+    window.history.pushState(null, "", `?${params}`);
+    pushedRef.current = true;
+  }
+
+  const closeDetails = useCallback(() => {
+    if (pushedRef.current) {
+      pushedRef.current = false;
+      window.history.back();
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    params.delete("person");
+    window.history.replaceState(null, "", params.size ? `?${params}` : window.location.pathname);
+  }, []);
+
+  // A link to someone we can't find (e.g. an old search): drop the param.
+  const missing = openId !== null && !openPerson && details?.status === "error";
+  useEffect(() => {
+    if (missing) closeDetails();
+  }, [missing, closeDetails]);
 
   const phase: NetworkMode =
     search.people.length > 0 || search.status === "done"
@@ -57,22 +102,20 @@ export function Discover({ initialContactCount }: { initialContactCount: number 
     for (const [key, value] of Object.entries(filters) as [keyof FilterValues, string][]) {
       if (value.trim()) criteria[key] = value.trim();
     }
-    setSaved(new Set());
     search.runSearch(criteria);
   }
 
   function newSearch() {
     search.reset();
-    setSaved(new Set());
     setFilters(EMPTY_FILTERS);
     requestAnimationFrame(() => firstFieldRef.current?.focus());
   }
 
   // Optimistic save: update the UI first, roll back if the server action fails.
-  async function save(index: number, person: PersonProfile) {
-    if (saved.has(index)) return;
+  async function save(person: SearchPerson) {
+    if (saved.has(person.id)) return;
     const firstName = person.full_name.split(/\s+/)[0];
-    setSaved((prev) => new Set(prev).add(index));
+    setSaved((prev) => new Set(prev).add(person.id));
     setContactCount((c) => c + 1);
     showToast(`${firstName} added to contacts`);
     try {
@@ -80,7 +123,7 @@ export function Discover({ initialContactCount }: { initialContactCount: number 
     } catch {
       setSaved((prev) => {
         const next = new Set(prev);
-        next.delete(index);
+        next.delete(person.id);
         return next;
       });
       setContactCount((c) => c - 1);
@@ -172,13 +215,18 @@ export function Discover({ initialContactCount }: { initialContactCount: number 
                   className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4"
                   style={{ perspective: 1200 }}
                 >
-                  {search.people.map((person, i) => (
-                    <li key={i}>
-                      <PersonCard person={person} saved={saved.has(i)} onSave={() => save(i, person)} />
+                  {search.people.map((person) => (
+                    <li key={person.id} className="flex">
+                      <PersonCard
+                        person={person}
+                        saved={saved.has(person.id)}
+                        onSave={() => save(person)}
+                        onOpen={() => openDetails(person)}
+                      />
                     </li>
                   ))}
                   {Array.from({ length: skeletons }, (_, i) => (
-                    <li key={`skeleton-${i}`}>
+                    <li key={`skeleton-${i}`} className="flex">
                       <SkeletonCard />
                     </li>
                   ))}
@@ -187,6 +235,14 @@ export function Discover({ initialContactCount }: { initialContactCount: number 
             )}
           </AnimatePresence>
         </motion.main>
+
+        <PersonDialog
+          person={openPerson}
+          details={details}
+          saved={openPerson ? saved.has(openPerson.id) : false}
+          onSave={save}
+          onClose={closeDetails}
+        />
 
         <Toast toast={toast} />
       </div>
