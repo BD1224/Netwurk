@@ -3,3 +3,6 @@ node_modules/
 .next/
 .env*.local
 .vercel/
+
+# test output has real people in it
+scripts/output/
