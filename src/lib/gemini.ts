@@ -1,5 +1,5 @@
 import "server-only";
-// The AI model the agent uses: Google Gemini (via the official @google/genai SDK).
+// Google Gemini, the model the agent uses (via the official @google/genai SDK).
 // The key is read from GEMINI_API_KEY, or else from ANTHROPIC_API_KEY (the old variable name,
 // which now holds the Gemini key). GEMINI_MODEL can override the model without a code change.
 import { GoogleGenAI } from "@google/genai";
@@ -9,7 +9,7 @@ export const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 let client: GoogleGenAI | null = null;
 function gemini() {
   const apiKey = process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("No AI key: set GEMINI_API_KEY (or ANTHROPIC_API_KEY) in .env.local");
+  if (!apiKey) throw new Error("No Gemini key: set GEMINI_API_KEY (or ANTHROPIC_API_KEY) in .env.local");
   return (client ??= new GoogleGenAI({ apiKey }));
 }
 
@@ -29,7 +29,7 @@ export type CallLog = {
 // Sends one prompt to Gemini (no tools; Serper does the searching) and returns its text.
 // Every caller wants JSON back, so Gemini is asked to reply with JSON only.
 // effort is kept for the callers; Gemini's default thinking is used for all of them.
-export async function callAI(
+export async function callGemini(
   system: string,
   prompt: string,
   _effort: "low" | "medium" | "high",

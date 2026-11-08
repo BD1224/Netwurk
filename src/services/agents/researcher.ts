@@ -1,12 +1,12 @@
 import "server-only";
 import { Candidate, PersonProfile, ResearchResult, SearchCriteria } from "@/types";
-import { callAI, pullJson, CallLog } from "@/lib/ai";
+import { callGemini, pullJson, CallLog } from "@/lib/gemini";
 import { serperSearch, SearchHit } from "@/lib/serper";
 import { RESEARCHER_SYSTEM, researcherPrompt } from "./prompts";
 
 // Stage 2: one person -> PersonProfile.
 // Serper does the searching, then Gemini reads the results (no web tools).
-// Returns null if the AI's answer was bad twice, if it isn't sure it's the right
+// Returns null if Gemini's answer was bad twice, if it isn't sure it's the right
 // person, or if the person doesn't match the search anymore.
 export async function researchPerson(person: Candidate, criteria: SearchCriteria, log?: CallLog) {
   const queries = researcherQueries(person, criteria);
@@ -17,7 +17,7 @@ export async function researchPerson(person: Candidate, criteria: SearchCriteria
   }
 
   for(let tries = 0; tries < 2; tries++){
-    const text = await callAI(
+    const text = await callGemini(
       RESEARCHER_SYSTEM,
       researcherPrompt(person, criteria, results),
       "medium",
@@ -39,7 +39,7 @@ export async function researchPerson(person: Candidate, criteria: SearchCriteria
       return PersonProfile.parse(r);
     }
   }
-  if(log != null) log.dropReason = "the AI's answer wasn't valid JSON";
+  if(log != null) log.dropReason = "Gemini's answer wasn't valid JSON";
   return null;
 }
 

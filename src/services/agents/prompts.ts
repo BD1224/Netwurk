@@ -60,7 +60,7 @@ export function researcherPrompt(p: Candidate, c: SearchCriteria, results: { que
     s += "- Found at: " + p.urls.join(", ") + "\n";
   }
 
-  // what the user searched for, so the AI can set matchesSearch
+  // what the user searched for, so Gemini can set matchesSearch
   s += "\nThe user searched for:\n";
   if(c.companies != null && c.companies.length > 0){
     s += "- Companies: " + c.companies.join(", ") + "\n";
