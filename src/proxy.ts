@@ -1,7 +1,7 @@
 // Runs before every page request (Next 16 renamed "middleware" to "proxy").
 // Refreshes the Supabase session, sends signed-out visitors to /signin,
 // and sends signed-in visitors on /signin straight to /discover.
-// Until Supabase keys are set in .env.local it does nothing, so the UI runs on mock data.
+// Until Supabase keys are set in .env.local it does nothing (and search/contacts return errors).
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 

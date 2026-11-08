@@ -4,30 +4,29 @@ import "server-only";
 //   papers, accolades, sources, talking points - whatever the search agent saved for that person
 // Never scrapes LinkedIn: the LinkedIn URL is only ever shown as a link.
 //
-// STUB: the "saved by the search agent" part reads the mock data. Once the real agent runs,
-// it must store each result's details (keyed by person id) somewhere this can read them.
+// People come from the agent's recent search results (agents/resultCache).
+// The agent doesn't collect papers or accolades yet, so those are empty.
 import { githubUsername } from "@/lib/github";
 import { RepoSchema, type PersonDetails, type Repo } from "@/types";
-import { MOCK_PEOPLE } from "./mock/people";
-import { MOCK_DETAILS } from "./mock/personDetails";
+import { sourceLinks } from "./agents/adapter";
+import { recallPerson } from "./agents/resultCache";
 
 const DAY_SECONDS = 24 * 60 * 60;
 
 export async function getPersonDetails(id: string): Promise<PersonDetails | null> {
-  const person = MOCK_PEOPLE.find((p) => p.id === id);
+  const person = recallPerson(id);
   if (!person) return null;
-  const saved = MOCK_DETAILS[id];
 
   const username = githubUsername(person.github_url);
-  const repos = (username ? await recentRepos(username) : null) ?? saved?.repos ?? [];
+  const repos = (username ? await recentRepos(username) : null) ?? [];
 
   return {
     person,
-    talking_points: saved?.talking_points ?? person.talking_points,
+    talking_points: person.talking_points,
     repos,
-    papers: saved?.papers ?? [],
-    accolades: saved?.accolades ?? [],
-    sources: saved?.sources ?? [],
+    papers: [],
+    accolades: [],
+    sources: sourceLinks(person.sources),
   };
 }
 

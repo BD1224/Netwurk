@@ -1,8 +1,9 @@
 "use client";
-// One row in the contact list: avatar, name, "Title · Company", and a "New" pill or last-contacted date.
+// One row in the contact list: photo (or illustrated avatar), name, "Title · Company", and a "New" pill or last-contacted date.
 import { motion } from "motion/react";
 import { forwardRef } from "react";
 import { IllustratedAvatar } from "@/components/shared/IllustratedAvatar";
+import { PersonPhoto } from "@/components/shared/PersonPhoto";
 import { avatarLook } from "@/components/shared/avatar-look";
 import { formatShortDate } from "@/lib/dates";
 import { cn } from "@/lib/utils";
@@ -52,7 +53,7 @@ export const ContactRow = forwardRef<HTMLButtonElement, Props>(function ContactR
           aria-hidden="true"
           className="size-[46px] flex-none overflow-hidden rounded-full shadow-[0_0_0_2px_#FFFFFF,0_6px_14px_-6px_rgba(9,9,11,0.3)]"
         >
-          <IllustratedAvatar size={46} {...avatarLook(contact.id)} />
+          <PersonPhoto url={contact.photo_url} fallback={<IllustratedAvatar size={46} {...avatarLook(contact.id)} />} />
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="text-[15px] font-semibold text-ink">{contact.full_name}</span>
@@ -64,7 +65,7 @@ export const ContactRow = forwardRef<HTMLButtonElement, Props>(function ContactR
             {formatShortDate(contact.last_contacted)}
           </span>
         ) : (
-          <span className="flex-none rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-[#4338CA]">
+          <span className="flex-none rounded-full bg-soft px-2.5 py-1 text-xs font-medium text-ink">
             New
           </span>
         )}

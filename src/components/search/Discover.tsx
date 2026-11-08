@@ -172,11 +172,6 @@ export function Discover({ initialContactCount, initialSavedIds }: Props) {
 
           <div className="mt-6 flex min-h-9 justify-center">
             <AnimatePresence mode="wait" initial={false}>
-              {phase === "idle" && !search.error && (
-                <motion.p key="hint" {...fade} className="text-center text-[15px] text-muted">
-                  Fill any field. Our agent searches the web for matching people.
-                </motion.p>
-              )}
               {phase === "idle" && search.error && (
                 <motion.p key="error" {...fade} role="alert" className="text-center text-[15px] text-[#B91C1C]">
                   {search.error}

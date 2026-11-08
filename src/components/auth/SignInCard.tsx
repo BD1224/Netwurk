@@ -6,7 +6,7 @@ import type { AuthError } from "@supabase/supabase-js";
 import { AnimatePresence, MotionConfig, motion, type Variants } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { AnimatedTitle } from "@/components/shared/AnimatedTitle";
-import { ArrowRightIcon, LockIcon, Spinner } from "@/components/shared/icons";
+import { ArrowRightIcon, Spinner } from "@/components/shared/icons";
 import { createClient, supabaseBrowserConfigured } from "@/lib/supabase/client";
 import { CheckInbox } from "./CheckInbox";
 import { GoogleMark } from "./GoogleMark";
@@ -141,11 +141,6 @@ export function SignInCard({ callbackError }: { callbackError?: string }) {
                 autoFocus={returning}
                 onSubmit={sendLink}
               />
-
-              <p className="m-0 flex items-center justify-center gap-2 text-xs text-subtle">
-                <LockIcon size={13} />
-                Your account is never listed in the directory.
-              </p>
             </motion.div>
           )}
         </AnimatePresence>

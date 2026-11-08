@@ -3,7 +3,7 @@ import { SearchCriteria, Candidate } from "@/services/agents/types";
 
 export const ORCHESTRATOR_SYSTEM = `You help job seekers and students find real people to network with.
 
-Given some filters, use web search to find up to 20 real people who match them. Fewer is fine: 5 strong matches beat 20 weak ones. Only include people you actually found in a source. Never make anyone up, and don't list the same person twice.
+Given some filters, use web search to find up to 20 real people who match them. Aim for 15 to 20: a researcher checks each person afterwards and drops anyone who doesn't fit, so it's fine to include people who might match. Only include people you actually found in a source. Never make anyone up, and don't list the same person twice.
 
 Pick people a student could realistically reach: early to mid-career, a few steps ahead of a student (for example analysts, associates, engineers, managers, PhD students, postdocs, assistant professors). Skip executives (C-suite, VPs, partners), department chairs, and well-known public figures, unless the filters ask for that role.
 
@@ -22,7 +22,7 @@ export const RESEARCHER_SYSTEM = `You research one person so a job seeker can de
 
 Run the searches listed in the message, once each, in order.
 
-From the URLs you are given and the first few results of each search, open at most 3 pages that look most likely to be this person, such as their LinkedIn, GitHub, personal site, or a university or company page about them. If none of these searches found the person, you may run one more search of your choice.
+From the URLs you are given and the first few results of each search, open at most 3 pages that look most likely to be this person, such as their GitHub, personal site, or a university or company page about them. Never open LinkedIn pages: use only what the LinkedIn search result's title and snippet say, and copy its URL into linkedinUrl. If none of these searches found the person, you may run one more search of your choice.
 
 Only use a page if it is about this person: the name plus at least 2 other details match (organization, title, school, or location). The URLs you are given count as a match.
 If several different people with this name could fit and you can't tell which one it is, set confidence to "low". Otherwise set it to "high". Never combine details from different people.
@@ -52,8 +52,23 @@ List every URL you used in "sources".
 When you are done, reply with only this JSON and nothing else:
 {"fullName": "full name", "title": "current title or null", "company": "current employer or null", "university": "school they studied at or null", "location": "City, State or null", "email": "email or null", "emailStatus": "confirmed" or "guessed" or null, "linkedinUrl": "url or null", "githubUrl": "url or null", "personalSite": "url or null", "researchAreas": ["topic"], "talkingPoints": "topic; topic; topic", "sources": ["url"], "confidence": "high" or "low", "matchesSearch": true or false}`;
 
-// turns the search form filters into a message for the orchestrator
-export function orchestratorPrompt(c: SearchCriteria) {
+// Extra words mixed into the searches so each search finds different people
+// (the same searches would return the same results every time).
+const FLAVORS = ["github", "team OR people", "speaker OR talk", "blog", "portfolio", "alumni", "conference", "interview OR podcast", "\"about me\"", "meetup"];
+const METROS = ["New York", "San Francisco", "Seattle", "Boston", "Austin", "Chicago", "Los Angeles", "Atlanta", "Denver", "Washington DC"];
+
+function shuffled<T>(items: T[]) {
+  const out = [...items];
+  for(let i = out.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+// turns the search form filters into a message for the orchestrator.
+// exclude: names the user has already been shown, so they get new people.
+export function orchestratorPrompt(c: SearchCriteria, exclude: string[] = []) {
   let s = "Find people to network with who match these filters:\n";
   const words: string[] = [];
   if(c.companies != null && c.companies.length > 0){
@@ -78,12 +93,30 @@ export function orchestratorPrompt(c: SearchCriteria) {
   }
 
   // the exact searches Claude should run, built from the filters
+  // (LinkedIn appears only as search results; its pages are never opened)
+  // Picked at random each time, so repeat searches reach different people.
   const base = words.join(" ");
-  s += "\nSearches to run:\n";
-  s += "1. " + base + " linkedin\n";
-  s += "2. " + base + "\n";
+  const quoted = words.map(w => '"' + w + '"').join(" ");
+  const noLocation = c.states == null || c.states.length == 0;
+  const [cityA, cityB] = shuffled(METROS);
+  const linkedin = shuffled([
+    base + " linkedin",
+    "site:linkedin.com/in " + quoted,
+    quoted + " linkedin profile",
+    base + " linkedin" + (noLocation ? " " + cityA : ""),
+    "site:linkedin.com/in " + quoted + (noLocation ? " " + cityB : ""),
+  ]);
+  const flavors = shuffled(FLAVORS);
+  const searches = [linkedin[0], base + " " + flavors[0], linkedin[1], base + " " + flavors[1], linkedin[2]];
   if(c.researchAreas != null && c.researchAreas.length > 0){
-    s += "3. " + base + " google scholar\n";
+    searches.splice(2, 0, base + " google scholar");
+  }
+  s += "\nSearches to run:\n";
+  searches.forEach((q, i) => { s += (i + 1) + ". " + q + "\n"; });
+
+  if(exclude.length > 0){
+    s += "\nThe user has already seen these people. Don't include them; find different people:\n";
+    s += exclude.slice(-60).join(", ") + "\n";
   }
   return s;
 }

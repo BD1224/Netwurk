@@ -7,6 +7,30 @@ import { SEARCH_STEPS, SearchEventSchema, type SearchCriteria, type SearchPerson
 
 export type SearchStatus = "idle" | "running" | "done" | "error";
 
+// Names of people already shown in this browser, sent with each search so the agent finds new
+// people. Kept in localStorage (last 300); if storage is unavailable, searches just don't exclude.
+const SEEN_KEY = "nf:seen-people";
+const MAX_SEEN = 300;
+
+function seenNames(): string[] {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(SEEN_KEY) ?? "[]");
+    return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string").slice(-MAX_SEEN) : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberSeen(name: string) {
+  try {
+    const names = seenNames().filter((n) => n !== name);
+    names.push(name);
+    localStorage.setItem(SEEN_KEY, JSON.stringify(names.slice(-MAX_SEEN)));
+  } catch {
+    // storage blocked: nothing to remember
+  }
+}
+
 export function useSearch() {
   const [status, setStatus] = useState<SearchStatus>("idle");
   const [people, setPeople] = useState<SearchPerson[]>([]);
@@ -64,6 +88,7 @@ export function useSearch() {
           return false;
         case "person":
           setPeople((prev) => [...prev, event.person]);
+          rememberSeen(event.person.full_name);
           return false;
         case "done":
           setStep(SEARCH_STEPS.length);
@@ -80,7 +105,7 @@ export function useSearch() {
       const res = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(criteria),
+        body: JSON.stringify({ ...criteria, exclude: seenNames() }),
         signal: controller.signal,
       });
       if (!res.ok || !res.body) {

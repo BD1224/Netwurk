@@ -16,7 +16,7 @@ export function CheckInbox({ email, onUseDifferentEmail }: Props) {
     <div role="status" className="flex flex-col items-center gap-[18px] py-2 text-center">
       <motion.span
         aria-hidden="true"
-        className="relative grid size-[84px] place-items-center rounded-full bg-accent-soft text-accent"
+        className="relative grid size-[84px] place-items-center rounded-full bg-soft text-ink"
         initial={{ opacity: 0, scale: 0.4, rotate: -10 }}
         animate={{ opacity: 1, scale: 1, rotate: 0 }}
         transition={{ type: "spring", stiffness: 320, damping: 13, delay: 0.1 }}
@@ -30,7 +30,7 @@ export function CheckInbox({ email, onUseDifferentEmail }: Props) {
         )}
         <MailIcon size={34} strokeWidth={1.8} />
       </motion.span>
-      <h1 className="m-0 font-serif text-4xl font-normal tracking-[-0.01em] italic">Check your inbox</h1>
+      <h1 className="m-0 text-3xl font-semibold tracking-[-0.02em]">Check your inbox</h1>
       <p className="m-0 text-sm text-muted">
         We sent a link to <span className="font-medium break-all text-ink">{email}</span>
       </p>

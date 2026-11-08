@@ -6,6 +6,7 @@ import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "motion/
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { removeContact, updateContact } from "@/actions/contacts.actions";
+import { NetworkBackground } from "@/components/search/NetworkBackground";
 import { AnimatedTitle } from "@/components/shared/AnimatedTitle";
 import { Header } from "@/components/shared/Header";
 import { ArrowRightIcon } from "@/components/shared/icons";
@@ -193,10 +194,12 @@ export function ContactBook({ initialContacts }: { initialContacts: Contact[] })
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="min-h-dvh">
+      <div className="relative min-h-dvh overflow-x-clip">
+        {/* Same network background as Discover, faded like it is behind search results. */}
+        <NetworkBackground mode="results" foundCount={0} />
         <Header contactCount={contacts.length} current="contacts" />
 
-        <main className="mx-auto flex max-w-[1160px] flex-col gap-7 px-4 pt-8 pb-32 sm:px-6">
+        <main className="relative z-10 mx-auto flex max-w-[1160px] flex-col gap-7 px-4 pt-8 pb-32 sm:px-6">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <AnimatedTitle
               words={[{ text: "Your" }, { text: "people", accent: true }]}
@@ -230,7 +233,7 @@ export function ContactBook({ initialContacts }: { initialContacts: Contact[] })
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: [0.2, 0.9, 0.1, 1] }}
             >
-              <p className="m-0 font-serif text-[34px] text-ink italic">No one saved yet</p>
+              <p className="m-0 text-2xl font-semibold text-ink">No one saved yet</p>
               <Link
                 href="/discover"
                 className="inline-flex h-12 items-center gap-2 rounded-full bg-ink px-[22px] text-[15px] font-medium text-white transition-[transform,background-color] duration-200 hover:scale-[1.04] hover:bg-accent motion-reduce:hover:scale-100"

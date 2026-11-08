@@ -1,26 +1,19 @@
 "use client";
-// Top bar: logo + name on the left (links to /). On the right:
+// Top bar, right-aligned:
 //   Discover - a "Contacts" pill with a count badge
-//   Contacts - a pill switch [Discover | Contacts (count)] with Contacts active
+//   Contacts - a pill switch [Discover | Contacts (count)] with Contacts active, and a Log out button
 //   Sign in  - nothing (leave out contactCount)
 // The count badge bounces whenever the count changes.
 import { motion } from "motion/react";
 import Link from "next/link";
 import { useState } from "react";
-import { NetworkIcon } from "./icons";
+import { signOut } from "@/actions/auth.actions";
 
 type Props = { contactCount?: number; current?: "discover" | "contacts" };
 
 export function Header({ contactCount, current = "discover" }: Props) {
   return (
-    <header className="relative z-10 mx-auto flex h-[84px] w-full max-w-[1160px] items-center justify-between gap-4 px-4 sm:px-6">
-      <Link href="/" className="flex items-center gap-3 rounded-xl" aria-label="Networking Finder home">
-        <span className="grid size-11 place-items-center rounded-xl bg-ink text-white">
-          <NetworkIcon size={20} />
-        </span>
-        <span className="hidden text-[17px] font-semibold tracking-tight min-[400px]:inline">Networking Finder</span>
-      </Link>
-
+    <header className="relative z-10 mx-auto flex h-[84px] w-full max-w-[1160px] items-center justify-end gap-4 px-4 sm:px-6">
       {contactCount === undefined ? null : current === "discover" ? (
         <Link
           href="/contacts"
@@ -31,23 +24,33 @@ export function Header({ contactCount, current = "discover" }: Props) {
           <CountBadge count={contactCount} />
         </Link>
       ) : (
-        <nav aria-label="App" className="flex gap-1 rounded-full border border-line bg-surface p-1">
-          <Link
-            href="/discover"
-            className="flex h-11 items-center rounded-full px-4 text-sm font-medium text-muted transition-colors hover:bg-soft hover:text-ink"
-          >
-            Discover
-          </Link>
-          <Link
-            href="/contacts"
-            aria-current="page"
-            aria-label={`Contacts, ${contactCount} saved`}
-            className="flex h-11 items-center gap-2 rounded-full bg-ink pr-1.5 pl-4 text-sm font-medium text-white"
-          >
-            Contacts
-            <CountBadge count={contactCount} />
-          </Link>
-        </nav>
+        <div className="flex items-center gap-2">
+          <nav aria-label="App" className="flex gap-1 rounded-full border border-line bg-surface p-1">
+            <Link
+              href="/discover"
+              className="flex h-11 items-center rounded-full px-4 text-sm font-medium text-muted transition-colors hover:bg-soft hover:text-ink"
+            >
+              Discover
+            </Link>
+            <Link
+              href="/contacts"
+              aria-current="page"
+              aria-label={`Contacts, ${contactCount} saved`}
+              className="flex h-11 items-center gap-2 rounded-full bg-ink pr-1.5 pl-4 text-sm font-medium text-white"
+            >
+              Contacts
+              <CountBadge count={contactCount} />
+            </Link>
+          </nav>
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="flex h-[54px] items-center rounded-full border border-line bg-surface px-5 text-sm font-medium text-muted transition-colors hover:bg-soft hover:text-ink"
+            >
+              Log out
+            </button>
+          </form>
+        </div>
       )}
     </header>
   );

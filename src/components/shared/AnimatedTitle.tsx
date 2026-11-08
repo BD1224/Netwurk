@@ -1,6 +1,6 @@
 "use client";
 // A heading whose words rise in one by one (blur -> sharp, slight rotateX).
-// Words marked `accent` render in Instrument Serif italic indigo.
+// All words use the same plain font and colour.
 import { motion, type Variants } from "motion/react";
 import { Fragment } from "react";
 import { cn } from "@/lib/utils";
@@ -47,7 +47,6 @@ export function AnimatedTitle({ words, className, delay = 0.06 }: Props) {
             variants={word}
             className={cn(
               "inline-block origin-bottom",
-              w.accent && "pr-[0.08em] font-serif text-[1.08em] font-normal tracking-[-0.01em] text-accent italic",
             )}
           >
             {w.text}

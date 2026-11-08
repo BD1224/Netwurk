@@ -1,5 +1,5 @@
 "use client";
-// "Who do you want to meet?" - "meet?" is serif italic indigo.
+// "Who do you want to meet?"
 import { AnimatedTitle, type TitleWord } from "@/components/shared/AnimatedTitle";
 
 const WORDS: TitleWord[] = [

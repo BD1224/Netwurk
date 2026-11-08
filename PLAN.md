@@ -155,7 +155,7 @@ User accounts are stored by Supabase Auth (`auth.users`), so we don't create a u
 | `contactSummary()` | `{ count, personIds }` (header badge + which search results are already saved) |
 | `contactRepos(id)` | `Repo[] \| null` (fresh GitHub repos for the contact panel; null = keep the saved snapshot) |
 
-Until Supabase keys are set, these actions use an in-memory mock store (`src/services/mock/contactsStore.ts`), reset on server restart.
+These actions need the Supabase keys in `.env.local`; there is no mock store.
 
 **Backend-only:** `runSearch()`, `findCandidates()`, `researchPerson()`.
 

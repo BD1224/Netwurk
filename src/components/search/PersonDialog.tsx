@@ -8,6 +8,7 @@ import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion
 import { useRef, useState } from "react";
 import { ExtrasGrid, ResearchAreas, SourceList, toSourceLinks } from "@/components/shared/DetailsLists";
 import { CheckIcon, GitHubIcon, GlobeIcon, LinkedInIcon, MailIcon, PlusIcon, XIcon } from "@/components/shared/icons";
+import { PersonPhoto } from "@/components/shared/PersonPhoto";
 import type { DetailsState } from "@/hooks/usePersonDetails";
 import { cn } from "@/lib/utils";
 import type { SearchPerson, SourceLink } from "@/types";
@@ -142,13 +143,13 @@ function Panel({
           <div className="flex flex-wrap items-end gap-5">
             <motion.span
               aria-hidden="true"
-              className="grid size-[104px] flex-none place-items-center rounded-full text-[32px] font-semibold tracking-[-0.02em] shadow-[0_0_0_6px_#FFFFFF,0_16px_34px_-12px_rgba(9,9,11,0.35)]"
+              className="grid size-[104px] flex-none place-items-center overflow-hidden rounded-full text-[32px] font-semibold tracking-[-0.02em] shadow-[0_0_0_6px_#FFFFFF,0_16px_34px_-12px_rgba(9,9,11,0.35)]"
               style={{ backgroundColor: bg, color: fg }}
               initial={{ opacity: 0, scale: 0.4 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ type: "spring", stiffness: 320, damping: 14, delay: 0.15 }}
             >
-              {initials(person.full_name)}
+              <PersonPhoto url={person.photo_url} fallback={initials(person.full_name)} />
             </motion.span>
             <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-1 pb-1">
               <Dialog.Title className="m-0 text-[30px] leading-[1.1] font-semibold tracking-[-0.03em]">
@@ -187,10 +188,10 @@ function Panel({
           {/* Why reach out */}
           {talkingPoints.length > 0 && (
             <motion.section variants={section} className="flex flex-col gap-3 rounded-[22px] bg-accent-soft px-6 py-[22px]">
-              <h3 className="m-0 font-serif text-[26px] font-normal text-[#312E81] italic">Why reach out</h3>
+              <h3 className="m-0 text-lg font-semibold text-ink">Why reach out</h3>
               <ul className="m-0 flex list-none flex-col gap-2 p-0">
                 {talkingPoints.map((point) => (
-                  <li key={point} className="flex items-start gap-3 text-[15px] leading-normal text-[#1E1B4B]">
+                  <li key={point} className="flex items-start gap-3 text-[15px] leading-normal text-ink">
                     <span aria-hidden="true" className="mt-[9px] size-1.5 flex-none rounded-full bg-accent" />
                     {point}
                   </li>

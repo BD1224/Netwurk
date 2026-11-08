@@ -47,6 +47,8 @@ export const PersonProfileSchema = z.object({
   research_areas: textList,
   talking_points: optionalText,
   sources: textList,
+  /** A professional photo URL: team/lab page, their own site or GitHub avatar (never LinkedIn). */
+  photo_url: z.string().url().nullish(),
 });
 export type PersonProfile = z.infer<typeof PersonProfileSchema>;
 

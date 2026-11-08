@@ -5,13 +5,15 @@ import { callClaude, pullJson, CallLog } from "@/lib/anthropic";
 import { ORCHESTRATOR_SYSTEM, orchestratorPrompt } from "./prompts";
 
 // filters -> up to 20 people to research
-export async function findCandidates(criteria: SearchCriteria, log?: CallLog) {
+// exclude: names already shown to the user. AGENT_MODE=test runs 3 searches instead of 6.
+export async function findCandidates(criteria: SearchCriteria, log?: CallLog, signal?: AbortSignal, exclude: string[] = []) {
   const text = await callClaude(
     ORCHESTRATOR_SYSTEM,
-    orchestratorPrompt(criteria),
-    [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
+    orchestratorPrompt(criteria, exclude),
+    [{ type: "web_search_20250305", name: "web_search", max_uses: process.env.AGENT_MODE == "test" ? 3 : 6 }],
     "low",
-    log
+    log,
+    signal
   );
 
   const json = pullJson(text);

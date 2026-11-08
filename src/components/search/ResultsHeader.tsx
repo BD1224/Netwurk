@@ -41,7 +41,7 @@ function CountUp({ value }: { value: number }) {
     spring.set(value);
   }, [spring, value]);
 
-  const className = "font-serif text-[64px] leading-none text-ink italic tabular-nums";
+  const className = "text-[64px] leading-none font-semibold tracking-[-0.03em] text-ink tabular-nums";
   if (reduce) {
     return (
       <span aria-hidden="true" className={className}>

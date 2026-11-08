@@ -35,7 +35,7 @@ export function SearchSteps({ current }: { current: number }) {
                   "inline-flex h-9 items-center gap-2 rounded-full border px-3.5 text-sm font-medium transition-colors duration-300",
                   state === "waiting" && "border-line bg-surface text-muted",
                   state === "running" && "border-ink bg-ink text-white",
-                  state === "done" && "border-accent-soft bg-accent-soft text-accent",
+                  state === "done" && "border-line bg-soft text-ink",
                 )}
               >
                 {state === "waiting" && <span className="size-1.5 rounded-full bg-[#A1A1AA]" aria-hidden="true" />}

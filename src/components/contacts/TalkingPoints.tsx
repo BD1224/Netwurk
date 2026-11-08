@@ -30,7 +30,7 @@ export function TalkingPoints({ text }: { text: string }) {
   return (
     <div className="flex flex-col gap-3.5 rounded-[22px] bg-accent-soft px-6 py-[22px]">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="m-0 font-serif text-[26px] font-normal tracking-[-0.01em] text-[#312E81] italic">
+        <h3 className="m-0 text-lg font-semibold text-ink">
           Talking points
         </h3>
         <AnimatePresence mode="wait" initial={false}>
@@ -52,7 +52,7 @@ export function TalkingPoints({ text }: { text: string }) {
               key="copy"
               type="button"
               onClick={copy}
-              className="flex h-11 items-center gap-1.5 rounded-full bg-surface px-3.5 text-[13px] font-medium text-[#3730A3] transition-colors hover:bg-soft hover:text-ink"
+              className="flex h-11 items-center gap-1.5 rounded-full bg-surface px-3.5 text-[13px] font-medium text-muted transition-colors hover:bg-soft hover:text-ink"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, transition: { duration: 0.12 } }}
@@ -65,7 +65,7 @@ export function TalkingPoints({ text }: { text: string }) {
       </div>
       <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
         {points.map((point, i) => (
-          <li key={i} className="flex items-start gap-3 text-[15px] leading-normal text-[#1E1B4B]">
+          <li key={i} className="flex items-start gap-3 text-[15px] leading-normal text-ink">
             <span aria-hidden="true" className="mt-[9px] size-1.5 flex-none rounded-full bg-accent" />
             {point}
           </li>

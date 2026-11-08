@@ -2,12 +2,10 @@
 // Server actions for the contact book (frontend -> server -> Supabase).
 // The UI calls these like normal async functions. RLS restricts every query to
 // rows where user_id = auth.uid(); we also filter by user_id explicitly.
-// Until Supabase keys are in .env.local, everything goes to an in-memory mock store.
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { githubUsername } from "@/lib/github";
 import { createClient, supabaseConfigured } from "@/lib/supabase/server";
-import { mockContactsStore } from "@/services/mock/contactsStore";
 import { getPersonDetails, recentRepos } from "@/services/personDetails";
 import {
   ContactSchema,
@@ -52,7 +50,6 @@ export async function saveContact(person: SearchPerson): Promise<Contact> {
     sources: found?.sources ?? [],
   };
 
-  if (!supabaseConfigured) return mockContactsStore.insert(profile, { person_id: personId, details });
   const { supabase, userId } = await requireUser();
 
   let { data, error } = await supabase
@@ -77,7 +74,6 @@ export async function saveContact(person: SearchPerson): Promise<Contact> {
 
 /** All of the logged-in user's contacts, newest first. */
 export async function listContacts(): Promise<Contact[]> {
-  if (!supabaseConfigured) return mockContactsStore.list();
   const { supabase, userId } = await requireUser();
 
   const { data, error } = await supabase
@@ -95,7 +91,6 @@ export async function updateContact(id: string, patch: ContactUpdate): Promise<C
   const contactId = IdSchema.parse(id);
   const changes = ContactUpdateSchema.parse(patch);
   if (Object.keys(changes).length === 0) throw new Error("Nothing to update");
-  if (!supabaseConfigured) return mockContactsStore.update(contactId, changes);
   const { supabase, userId } = await requireUser();
 
   const { data, error } = await supabase
@@ -113,7 +108,6 @@ export async function updateContact(id: string, patch: ContactUpdate): Promise<C
 /** Delete a contact. */
 export async function removeContact(id: string): Promise<void> {
   const contactId = IdSchema.parse(id);
-  if (!supabaseConfigured) return mockContactsStore.remove(contactId);
   const { supabase, userId } = await requireUser();
 
   const { error } = await supabase.from("contacts").delete().eq("id", contactId).eq("user_id", userId);
@@ -127,7 +121,7 @@ export async function removeContact(id: string): Promise<void> {
  * already saved (their cards show a check). Empty when logged out.
  */
 export async function contactSummary(): Promise<{ count: number; personIds: string[] }> {
-  if (!supabaseConfigured) return { count: mockContactsStore.count(), personIds: mockContactsStore.personIds() };
+  if (!supabaseConfigured) return { count: 0, personIds: [] };
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return { count: 0, personIds: [] };
@@ -147,19 +141,13 @@ export async function contactSummary(): Promise<{ count: number; personIds: stri
  */
 export async function contactRepos(id: string): Promise<Repo[] | null> {
   const contactId = IdSchema.parse(id);
-  let githubUrl: string | null = null;
-  if (!supabaseConfigured) {
-    githubUrl = mockContactsStore.get(contactId)?.github_url ?? null;
-  } else {
-    const { supabase, userId } = await requireUser();
-    const { data } = await supabase
-      .from("contacts")
-      .select("github_url")
-      .eq("id", contactId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    githubUrl = (data?.github_url as string | null | undefined) ?? null;
-  }
-  const username = githubUsername(githubUrl);
+  const { supabase, userId } = await requireUser();
+  const { data } = await supabase
+    .from("contacts")
+    .select("github_url")
+    .eq("id", contactId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  const username = githubUsername((data?.github_url as string | null | undefined) ?? null);
   return username ? recentRepos(username) : null;
 }

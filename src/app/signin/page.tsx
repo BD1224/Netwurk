@@ -5,7 +5,7 @@ import { SignInCard } from "@/components/auth/SignInCard";
 import { NetworkBackground } from "@/components/search/NetworkBackground";
 import { Header } from "@/components/shared/Header";
 
-export const metadata: Metadata = { title: "Sign in · Networking Finder" };
+export const metadata: Metadata = { title: "Sign in" };
 
 type Props = { searchParams: Promise<{ error?: string | string[] }> };
 

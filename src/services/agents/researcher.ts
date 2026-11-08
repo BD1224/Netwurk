@@ -5,17 +5,21 @@ import { RESEARCHER_SYSTEM, researcherPrompt } from "./prompts";
 
 // one person -> PersonProfile, or null if Claude's answer was bad twice in a row,
 // or if Claude wasn't sure it was the right person / they don't match the search anymore
-export async function researchPerson(person: Candidate, criteria: SearchCriteria, log?: CallLog) {
+// AGENT_MODE=test allows fewer searches and page reads per person, to use fewer tokens.
+export async function researchPerson(person: Candidate, criteria: SearchCriteria, log?: CallLog, signal?: AbortSignal) {
+  const test = process.env.AGENT_MODE == "test";
   for(let tries = 0; tries < 2; tries++){
     const text = await callClaude(
       RESEARCHER_SYSTEM,
       researcherPrompt(person, criteria),
       [
-        { type: "web_search_20250305", name: "web_search", max_uses: 4 },
-        { type: "web_fetch_20250910", name: "web_fetch", max_uses: 3 },
+        { type: "web_search_20250305", name: "web_search", max_uses: test ? 3 : 4 },
+        // LinkedIn's terms forbid scraping: its URLs may only come from search results, never be opened
+        { type: "web_fetch_20250910", name: "web_fetch", max_uses: test ? 2 : 3, blocked_domains: ["linkedin.com"] },
       ],
       "medium",
-      log
+      log,
+      signal
     );
 
     const parsed = ResearchResult.safeParse(pullJson(text));

@@ -1,5 +1,5 @@
 "use client";
-// One search result: initials avatar, name, role lines, up to 2 research tags,
+// One search result: photo (or initials) avatar, name, role lines, up to 2 research tags,
 // link icons, an email-status envelope, and a "+" button that saves to contacts.
 // The avatar + name + role lines form one button that opens the details overlay; the links
 // and "+" sit outside that button, so they never open it.
@@ -14,6 +14,7 @@ import {
   MailIcon,
   PlusIcon,
 } from "@/components/shared/icons";
+import { PersonPhoto } from "@/components/shared/PersonPhoto";
 import { colorFor, initials, joinDot } from "./person-style";
 
 /** Entrance used by the results grid (cards stream in one at a time). */
@@ -56,13 +57,13 @@ export function PersonCard({ person, saved, onSave, onOpen }: Props) {
         className="group flex w-full flex-col items-center rounded-2xl focus-visible:outline-offset-4"
       >
         <span
-          className="grid size-16 place-items-center rounded-full text-xl font-semibold"
+          className="grid size-16 place-items-center overflow-hidden rounded-full text-xl font-semibold"
           style={{ backgroundColor: bg, color: fg }}
           aria-hidden="true"
         >
-          {initials(person.full_name)}
+          <PersonPhoto url={person.photo_url} fallback={initials(person.full_name)} />
         </span>
-        <span className="mt-3 text-[17px] leading-snug font-semibold transition-colors duration-200 group-hover:text-accent">
+        <span className="mt-3 text-[17px] leading-snug font-semibold underline-offset-4 group-hover:underline">
           {person.full_name}
         </span>
         {roleLine && <span className="mt-1 text-sm text-muted">{roleLine}</span>}

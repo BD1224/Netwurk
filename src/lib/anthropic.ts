@@ -27,7 +27,8 @@ export async function callClaude(
   prompt: string,
   tools: Anthropic.ToolUnion[],
   effort: "low" | "medium" | "high",
-  log?: CallLog
+  log?: CallLog,
+  signal?: AbortSignal // cancels the request when the user stops the search
 ) {
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: prompt }];
 
@@ -39,7 +40,7 @@ export async function callClaude(
       system: system,
       tools: tools,
       messages: messages,
-    });
+    }, { signal: signal });
     const res = await stream.finalMessage();
 
     if(log != null){
