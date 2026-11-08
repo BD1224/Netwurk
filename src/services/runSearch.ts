@@ -15,6 +15,8 @@ export async function runSearch(
   criteria: SearchCriteria,
   onPerson: (person: PersonProfile) => void,
 ): Promise<number> {
+  if (process.env.MOCK_SEARCH === "1") return mockSearch(onPerson);
+
   const candidates = (await findCandidates(criteria)).slice(0, MAX_PEOPLE);
   let next = 0;
   let sent = 0;
@@ -39,4 +41,29 @@ export async function runSearch(
 
   await Promise.all(Array.from({ length: RESEARCH_AT_ONCE }, () => worker()));
   return sent;
+}
+
+// MOCK_SEARCH=1 in .env.local: sends 3 fake people, one per second, without calling Claude
+// or Serper. For testing the UI without spending tokens.
+async function mockSearch(onPerson: (person: PersonProfile) => void): Promise<number> {
+  const names = ["Ada Lovelace", "Alan Turing", "Grace Hopper"];
+  for (const [i, fullName] of names.entries()) {
+    await new Promise((r) => setTimeout(r, 1000));
+    onPerson({
+      fullName,
+      title: "Software Engineer",
+      company: "Acme",
+      university: null,
+      location: "Boston, MA",
+      email: `person${i}@acme.com`,
+      emailStatus: i === 0 ? "confirmed" : "guessed",
+      linkedinUrl: null,
+      githubUrl: null,
+      personalSite: null,
+      researchAreas: [],
+      talkingPoints: `Mock person ${i + 1}.`,
+      sources: [],
+    });
+  }
+  return names.length;
 }

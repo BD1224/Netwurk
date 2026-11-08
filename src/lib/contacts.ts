@@ -2,7 +2,7 @@
 // The useContacts hook calls these. They live outside the hook so they can also run
 // in a test script (hooks only run inside React components).
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { PersonProfile, type Contact } from "@/types";
+import { ContactStatus, PersonProfile, type Contact } from "@/types";
 
 // App field names (camelCase) -> database column names (snake_case)
 function toRow(p: PersonProfile) {
@@ -56,4 +56,29 @@ export async function saveContact(supabase: SupabaseClient, person: PersonProfil
   return fromRow(data);
 }
 
-// Still to add: listContacts, updateContact, removeContact
+// All of the logged-in user's contacts, newest first (RLS filters to their rows).
+export async function listContacts(supabase: SupabaseClient): Promise<Contact[]> {
+  const { data, error } = await supabase
+    .from("contacts")
+    .select()
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(`listContacts failed: ${error.message}`);
+  return data.map(fromRow);
+}
+
+// Edits the user's own fields on a contact.
+export async function updateContact(
+  supabase: SupabaseClient,
+  id: string,
+  changes: { notes?: string | null; status?: ContactStatus },
+): Promise<Contact> {
+  const row = { notes: changes.notes, status: changes.status && ContactStatus.parse(changes.status) };
+  const { data, error } = await supabase.from("contacts").update(row).eq("id", id).select().single();
+  if (error) throw new Error(`updateContact failed: ${error.message}`);
+  return fromRow(data);
+}
+
+export async function removeContact(supabase: SupabaseClient, id: string): Promise<void> {
+  const { error } = await supabase.from("contacts").delete().eq("id", id);
+  if (error) throw new Error(`removeContact failed: ${error.message}`);
+}
