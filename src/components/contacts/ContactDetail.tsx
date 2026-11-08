@@ -7,6 +7,7 @@
 import { motion, useReducedMotion, type Variants } from "motion/react";
 import { ExtrasGrid, ResearchAreas, SourceList, toSourceLinks } from "@/components/shared/DetailsLists";
 import { IllustratedAvatar } from "@/components/shared/IllustratedAvatar";
+import { PersonPhoto } from "@/components/shared/PersonPhoto";
 import { avatarLook } from "@/components/shared/avatar-look";
 import { CheckIcon, GitHubIcon, GlobeIcon, LinkedInIcon, MailIcon } from "@/components/shared/icons";
 import { cn } from "@/lib/utils";
@@ -99,7 +100,7 @@ export function ContactDetail({
               />
             ))}
           <span className="absolute inset-0 overflow-hidden rounded-full shadow-[0_0_0_4px_#FFFFFF,0_14px_30px_-10px_rgba(9,9,11,0.35)]">
-            <IllustratedAvatar size={96} {...avatarLook(contact.id)} />
+            <PersonPhoto url={contact.photoUrl} fallback={<IllustratedAvatar size={96} {...avatarLook(contact.id)} />} />
           </span>
         </motion.span>
         <div className="flex min-w-0 flex-[1_1_240px] flex-col gap-1.5">

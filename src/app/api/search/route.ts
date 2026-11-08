@@ -4,7 +4,10 @@
 // Writes nothing to the database. Sets maxDuration so the search can run for a few minutes.
 import { createClient } from "@/lib/supabase/server";
 import { runSearch } from "@/services/runSearch";
+import { z } from "zod";
 import { SearchCriteria, type SearchEvent } from "@/types";
+
+const Exclude = z.array(z.string().trim().min(1).max(100)).max(300);
 
 export const maxDuration = 300;
 
@@ -13,9 +16,13 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Not logged in" }, { status: 401 });
 
-  const parsed = SearchCriteria.safeParse(await req.json().catch(() => null));
+  const body = await req.json().catch(() => null);
+  const parsed = SearchCriteria.safeParse(body);
   if (!parsed.success) return Response.json({ error: "Invalid search filters" }, { status: 400 });
   const criteria = parsed.data;
+  // Names this browser has already been shown, so the search finds different people.
+  const seen = Exclude.safeParse(body?.exclude);
+  const exclude = seen.success ? seen.data : [];
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -27,6 +34,7 @@ export async function POST(req: Request) {
           criteria,
           (person) => send({ type: "person", person }),
           (found) => send({ type: "found", count: found }),
+          exclude,
         );
         send({ type: "done", count });
       } catch (e) {

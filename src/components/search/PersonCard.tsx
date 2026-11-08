@@ -14,6 +14,7 @@ import {
   MailIcon,
   PlusIcon,
 } from "@/components/shared/icons";
+import { PersonPhoto } from "@/components/shared/PersonPhoto";
 import { colorFor, initials, joinDot } from "./person-style";
 
 /** Entrance used by the results grid (cards stream in one at a time). */
@@ -60,7 +61,7 @@ export function PersonCard({ person, saved, onSave, onOpen }: Props) {
           style={{ backgroundColor: bg, color: fg }}
           aria-hidden="true"
         >
-          {initials(person.fullName)}
+          <PersonPhoto url={person.photoUrl} fallback={initials(person.fullName)} />
         </span>
         <span className="mt-3 text-[17px] leading-snug font-semibold underline-offset-4 group-hover:underline">
           {person.fullName}

@@ -7,7 +7,7 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 
 export const metadata: Metadata = {
-  title: "wetNork",
+  title: "Netwurk",
   description: "Find people to network with, research them, and save the ones you want to meet.",
 };
 

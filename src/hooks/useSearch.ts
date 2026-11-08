@@ -8,6 +8,30 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SearchCriteria, SearchEvent, SearchResult } from "@/types";
 
+// Names of people already shown in this browser, sent with each search so the server finds new
+// people. Kept in localStorage (last 300); if storage is unavailable, searches just don't exclude.
+const SEEN_KEY = "nf:seen-people";
+const MAX_SEEN = 300;
+
+function seenNames(): string[] {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(SEEN_KEY) ?? "[]");
+    return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string").slice(-MAX_SEEN) : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberSeen(name: string) {
+  try {
+    const names = seenNames().filter((n) => n !== name);
+    names.push(name);
+    localStorage.setItem(SEEN_KEY, JSON.stringify(names.slice(-MAX_SEEN)));
+  } catch {
+    // storage blocked: nothing to remember
+  }
+}
+
 export function useSearch() {
   const [people, setPeople] = useState<SearchResult[]>([]);
   const [searched, setSearched] = useState(false);
@@ -45,6 +69,7 @@ export function useSearch() {
       if (event.type === "found") setFound(event.count);
       if (event.type === "person") {
         setPeople((prev) => [...prev, { ...event.person, key: crypto.randomUUID() }]);
+        rememberSeen(event.person.fullName);
       }
       if (event.type === "error") setError(event.message);
     };
@@ -53,7 +78,7 @@ export function useSearch() {
       const res = await fetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(criteria),
+        body: JSON.stringify({ ...criteria, exclude: seenNames() }),
         signal: controller.signal,
       });
       if (!res.ok || !res.body) {

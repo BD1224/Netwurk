@@ -22,6 +22,7 @@ function toRow(p: PersonProfile) {
     research_areas: p.researchAreas ?? null,
     talking_points: p.talkingPoints ?? null,
     sources: p.sources ?? null,
+    photo_url: p.photoUrl ?? null,
   };
 }
 
@@ -46,6 +47,7 @@ function fromRow(r: any): Contact {
     researchAreas: r.research_areas ?? [],
     talkingPoints: r.talking_points ?? "",
     sources: r.sources ?? [],
+    photoUrl: r.photo_url ?? null,
     status: r.status,
     notes: r.notes,
     openalexId: r.openalex_id ?? null,

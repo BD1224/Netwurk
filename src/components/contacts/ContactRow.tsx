@@ -3,6 +3,7 @@
 import { motion } from "motion/react";
 import { forwardRef } from "react";
 import { IllustratedAvatar } from "@/components/shared/IllustratedAvatar";
+import { PersonPhoto } from "@/components/shared/PersonPhoto";
 import { avatarLook } from "@/components/shared/avatar-look";
 import { cn } from "@/lib/utils";
 import type { Contact } from "@/types";
@@ -52,7 +53,7 @@ export const ContactRow = forwardRef<HTMLButtonElement, Props>(function ContactR
           aria-hidden="true"
           className="size-[46px] flex-none overflow-hidden rounded-full shadow-[0_0_0_2px_#FFFFFF,0_6px_14px_-6px_rgba(9,9,11,0.3)]"
         >
-          <IllustratedAvatar size={46} {...avatarLook(contact.id)} />
+          <PersonPhoto url={contact.photoUrl} fallback={<IllustratedAvatar size={46} {...avatarLook(contact.id)} />} />
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="text-[15px] font-semibold text-ink">{contact.fullName}</span>

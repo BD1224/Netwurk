@@ -10,6 +10,7 @@ import { ExtrasGrid, ResearchAreas, SourceList, toSourceLinks } from "@/componen
 import { CheckIcon, GitHubIcon, GlobeIcon, LinkedInIcon, MailIcon, PlusIcon, XIcon } from "@/components/shared/icons";
 import { cn } from "@/lib/utils";
 import type { Loadable, Paper, Repo, SearchResult } from "@/types";
+import { PersonPhoto } from "@/components/shared/PersonPhoto";
 import { colorFor, initials, joinDot } from "./person-style";
 
 type Props = {
@@ -145,7 +146,7 @@ function Panel({
               animate={{ opacity: 1, scale: 1 }}
               transition={{ type: "spring", stiffness: 320, damping: 14, delay: 0.15 }}
             >
-              {initials(person.fullName)}
+              <PersonPhoto url={person.photoUrl} fallback={initials(person.fullName)} />
             </motion.span>
             <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-1 pb-1">
               <Dialog.Title className="m-0 text-[30px] leading-[1.1] font-semibold tracking-[-0.03em]">

@@ -65,5 +65,6 @@ export const SEGMENTS: [Point, Point][] = [
 /** Segments (indexes into SEGMENTS) that carry a travelling "message" dot. */
 export const DOT_LINES = [1, 7, 10, 16, 20, 23, 25, 4, 28, 33, 36, 41];
 
-/** Order in which avatars light up as "found" while a search runs. */
+/** Order in which avatars light up as "found", 3 per completed search step. */
 export const FOUND = [7, 8, 3, 11, 12, 0, 17, 5, 15, 19, 9, 1];
+export const FOUND_PER_STEP = 3;

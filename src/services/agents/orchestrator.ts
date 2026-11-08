@@ -10,15 +10,20 @@ const MAX_QUERY_WORDS = 32; // Google ignores words past about 32
 // Stage 1 (no AI): filters -> up to 20 people.
 // Searches LinkedIn through Serper. After each round, the people we already found
 // are excluded with -"Name" so the next search shows new people.
-export async function findCandidates(criteria: SearchCriteria, log?: CallLog) {
+// exclude: names the user has already been shown. They're excluded the same way (after the
+// people found this search) and never returned, so every search brings new people.
+export async function findCandidates(criteria: SearchCriteria, log?: CallLog, exclude: string[] = []) {
   const base = baseQuery(criteria);
   const found: Candidate[] = [];
+  const seen = new Set(exclude.map(n => n.toLowerCase()));
+  const seenNewestFirst = [...exclude].reverse();
 
   for(let round = 0; round < MAX_ROUNDS; round++){
     // newest names first, until the query would get too long
     let q = base + " site:linkedin.com/in";
-    for(let i = found.length - 1; i >= 0; i--){
-      const add = ' -"' + found[i].name + '"';
+    const names = [...found.map(f => f.name).reverse(), ...seenNewestFirst];
+    for(const name of names){
+      const add = ' -"' + name + '"';
       if((q + add).split(" ").length > MAX_QUERY_WORDS){
         break;
       }
@@ -29,7 +34,7 @@ export async function findCandidates(criteria: SearchCriteria, log?: CallLog) {
     let added = 0;
     for(const h of hits){
       const c = parseLinkedIn(h, criteria);
-      if(c != null && !alreadyFound(found, c)){
+      if(c != null && !seen.has(c.name.toLowerCase()) && !alreadyFound(found, c)){
         found.push(c);
         added++;
       }
@@ -44,7 +49,7 @@ export async function findCandidates(criteria: SearchCriteria, log?: CallLog) {
     const hits = await serperSearch(base + " site:scholar.google.com", log);
     for(const h of hits){
       const c = parseScholar(h);
-      if(c != null && !alreadyFound(found, c)){
+      if(c != null && !seen.has(c.name.toLowerCase()) && !alreadyFound(found, c)){
         found.push(c);
       }
     }

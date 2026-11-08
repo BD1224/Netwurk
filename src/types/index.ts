@@ -41,6 +41,9 @@ export const PersonProfile = z.object({
   researchAreas: z.array(z.string()),
   talkingPoints: z.string(),
   sources: z.array(z.string()),
+  // A professional photo: their own site, a team/lab page, GitHub or Gravatar (never LinkedIn).
+  // Found after research (services/agents/photos.ts); saved in contacts.photo_url.
+  photoUrl: z.string().nullish(),
 });
 export type PersonProfile = z.infer<typeof PersonProfile>;
 
