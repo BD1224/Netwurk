@@ -1,13 +1,16 @@
 "use client";
 // Browser-side React hook for the search. POSTs SearchCriteria to /api/search (the server,
 // which holds the secret Claude key) and reads the stream, adding each person to `people`.
-// Returns { runSearch(criteria), reset(), people: PersonProfile[], found, running, error }.
+// Returns { runSearch(criteria), reset(), people: SearchResult[], found, running, searched, error }.
+// Each person gets a browser-made `key` (for lists and "saved" tracking).
 // found = how many candidates are being researched (null until the server says).
+// searched = a search has been started since the last reset (false = nothing to show yet).
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { PersonProfile, SearchCriteria, SearchEvent } from "@/types";
+import type { SearchCriteria, SearchEvent, SearchResult } from "@/types";
 
 export function useSearch() {
-  const [people, setPeople] = useState<PersonProfile[]>([]);
+  const [people, setPeople] = useState<SearchResult[]>([]);
+  const [searched, setSearched] = useState(false);
   const [found, setFound] = useState<number | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +24,7 @@ export function useSearch() {
     setPeople([]);
     setFound(null);
     setRunning(false);
+    setSearched(false);
     setError(null);
   }, []);
 
@@ -32,13 +36,16 @@ export function useSearch() {
     setFound(null);
     setError(null);
     setRunning(true);
+    setSearched(true);
 
     // handles one line of the stream
     const handle = (line: string) => {
       if (!line.trim()) return;
       const event = JSON.parse(line) as SearchEvent;
       if (event.type === "found") setFound(event.count);
-      if (event.type === "person") setPeople((prev) => [...prev, event.person]);
+      if (event.type === "person") {
+        setPeople((prev) => [...prev, { ...event.person, key: crypto.randomUUID() }]);
+      }
       if (event.type === "error") setError(event.message);
     };
 
@@ -74,5 +81,5 @@ export function useSearch() {
     }
   }, []);
 
-  return { runSearch, reset, people, found, running, error };
+  return { runSearch, reset, people, found, running, searched, error };
 }
