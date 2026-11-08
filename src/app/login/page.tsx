@@ -7,6 +7,13 @@ import { createClient } from "@/lib/supabase/client";
 const email = process.env.NEXT_PUBLIC_TEST_USER_EMAIL!;
 const password = process.env.NEXT_PUBLIC_TEST_USER_PASSWORD!;
 
+// TEMPORARY stub filters for testing the real search
+const STUB_CRITERIA = {
+  roles: ["Financial analyst"],
+  states: ["Boston"],
+  universities: ["UMass Amherst"],
+};
+
 export default function LoginPage() {
   const [loginMsg, setLoginMsg] = useState("");
   const [searchMsg, setSearchMsg] = useState("");
@@ -17,9 +24,24 @@ export default function LoginPage() {
   }
 
   // The browser attaches the login cookie to this request automatically.
+  // Sends stub filters and prints each streamed line (one SearchEvent per line) as it arrives.
   async function runBackend() {
-    const res = await fetch("/api/search", { method: "POST" });
-    setSearchMsg(`${res.status} ${await res.text()}`);
+    setSearchMsg("Searching...\n");
+    const res = await fetch("/api/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(STUB_CRITERIA),
+    });
+    if (!res.ok || !res.body) {
+      setSearchMsg(`${res.status} ${await res.text()}`);
+      return;
+    }
+    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      setSearchMsg((prev) => prev + value);
+    }
   }
 
   return (
