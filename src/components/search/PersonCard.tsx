@@ -10,6 +10,7 @@ import {
   CheckIcon,
   GitHubIcon,
   GlobeIcon,
+  ScholarIcon,
   LinkedInIcon,
   MailIcon,
   PlusIcon,
@@ -35,6 +36,7 @@ export function PersonCard({ person, saved, onSave, onOpen }: Props) {
   const links = [
     person.linkedin_url && { href: person.linkedin_url, label: "LinkedIn", Icon: LinkedInIcon },
     person.github_url && { href: person.github_url, label: "GitHub", Icon: GitHubIcon },
+    person.scholar_url && { href: person.scholar_url, label: "Google Scholar", Icon: ScholarIcon },
     person.personal_site && { href: person.personal_site, label: "personal site", Icon: GlobeIcon },
   ].filter((l): l is { href: string; label: string; Icon: typeof GlobeIcon } => Boolean(l));
 

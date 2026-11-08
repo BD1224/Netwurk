@@ -38,6 +38,9 @@ export const PersonProfile = z.object({
   linkedinUrl: z.string().nullable(),
   githubUrl: z.string().nullable(),
   personalSite: z.string().nullable(),
+  // From the backend branch: used to find the person's papers on OpenAlex.
+  scholarUrl: z.string().nullish(),
+  orcid: z.string().regex(/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/).nullish().catch(null),
   researchAreas: z.array(z.string()),
   talkingPoints: z.string(),
   sources: z.array(z.string()),

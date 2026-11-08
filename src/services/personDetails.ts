@@ -6,28 +6,49 @@ import "server-only";
 //
 // The person comes from the caller (the browser's copy of the search result) or, failing that,
 // from the agent's recent results (agents/resultCache, in memory: unreliable on serverless).
-// The agent doesn't collect papers or accolades yet, so those are empty.
+// Papers come from OpenAlex (services/papers.ts); the OpenAlex profile is added as a source.
+// The agent doesn't collect accolades yet, so those are empty.
 import { githubUsername } from "@/lib/github";
 import { RepoSchema, type PersonDetails, type Repo, type SearchPerson } from "@/types";
 import { sourceLinks } from "./agents/adapter";
 import { recallPerson } from "./agents/resultCache";
+import { papersFor } from "./papers";
 
 const DAY_SECONDS = 24 * 60 * 60;
 
-export async function getPersonDetails(id: string, given?: SearchPerson): Promise<PersonDetails | null> {
+/** OpenAlex author ids already matched (or "none"), so each person is matched only once. */
+const g = globalThis as typeof globalThis & { __openalexIds?: Map<string, string> };
+const openalexIds = (g.__openalexIds ??= new Map<string, string>());
+
+/** knownOpenalexId: a saved contact's id from an earlier lookup (skips matching). */
+export async function getPersonDetails(
+  id: string,
+  given?: SearchPerson,
+  knownOpenalexId?: string | null,
+): Promise<PersonDetails | null> {
   const person = given ?? recallPerson(id);
   if (!person) return null;
 
   const username = githubUsername(person.github_url);
-  const repos = (username ? await recentRepos(username) : null) ?? [];
+  const [repos, found] = await Promise.all([
+    username ? recentRepos(username) : Promise.resolve(null),
+    papersFor(person, knownOpenalexId ?? openalexIds.get(id)),
+  ]);
+  if (found) openalexIds.set(id, found.openalexId);
+  const papers = found?.papers ?? [];
+  const sources = sourceLinks(person.sources);
+  if (found && papers.length > 0) {
+    sources.push({ label: "openalex.org", url: `https://openalex.org/${found.openalexId}` });
+  }
 
   return {
     person,
     talking_points: person.talking_points,
-    repos,
-    papers: [],
+    repos: repos ?? [],
+    papers,
     accolades: [],
-    sources: sourceLinks(person.sources),
+    sources,
+    openalex_id: found?.openalexId ?? null,
   };
 }
 

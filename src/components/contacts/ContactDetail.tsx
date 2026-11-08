@@ -10,7 +10,7 @@ import { ExtrasGrid, ResearchAreas, SourceList, toSourceLinks } from "@/componen
 import { IllustratedAvatar } from "@/components/shared/IllustratedAvatar";
 import { PersonPhoto } from "@/components/shared/PersonPhoto";
 import { avatarLook } from "@/components/shared/avatar-look";
-import { CheckIcon, GitHubIcon, GlobeIcon, LinkedInIcon, MailIcon } from "@/components/shared/icons";
+import { CheckIcon, GitHubIcon, GlobeIcon, LinkedInIcon, MailIcon, ScholarIcon } from "@/components/shared/icons";
 import { formatShortDate, todayISO } from "@/lib/dates";
 import { githubUsername } from "@/lib/github";
 import { cn } from "@/lib/utils";
@@ -57,9 +57,12 @@ export function ContactDetail({ contact, notesStatus, onNotesChange, onMarkConta
   const never = !contact.last_contacted;
   const contactedToday = contact.last_contacted === todayISO();
   const place = [contact.university, contact.location].filter(Boolean).join(" · ");
+  // Saved contacts keep the Scholar link in details (no table column).
+  const scholarUrl = contact.details.scholar_url ?? contact.scholar_url ?? null;
   const links = [
     contact.linkedin_url && { href: contact.linkedin_url, label: `${first} on LinkedIn`, Icon: LinkedInIcon },
     contact.github_url && { href: contact.github_url, label: `${first} on GitHub`, Icon: GitHubIcon },
+    scholarUrl && { href: scholarUrl, label: `${first} on Google Scholar`, Icon: ScholarIcon },
     contact.personal_site && { href: contact.personal_site, label: `${first}'s website`, Icon: GlobeIcon },
   ].filter((l): l is { href: string; label: string; Icon: typeof GlobeIcon } => Boolean(l));
   const repos = useLiveRepos(contact);

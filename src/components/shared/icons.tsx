@@ -65,6 +65,15 @@ export const GlobeIcon = (p: IconProps) => (
   </Icon>
 );
 
+/** Graduation cap: a Google Scholar profile. */
+export const ScholarIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M22 10 12 5 2 10l10 5 10-5z" />
+    <path d="M6 12v5c3 2 9 2 12 0v-5" />
+    <path d="M22 10v6" />
+  </Icon>
+);
+
 export const LinkedInIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z" />

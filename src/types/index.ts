@@ -49,6 +49,10 @@ export const PersonProfileSchema = z.object({
   sources: textList,
   /** A professional photo URL: team/lab page, their own site or GitHub avatar (never LinkedIn). */
   photo_url: z.string().url().nullish(),
+  /** Google Scholar profile and ORCID iD (researchers). Used to find their papers on OpenAlex.
+   *  Saved contacts keep these in `details` (no table columns). */
+  scholar_url: z.string().url().nullish(),
+  orcid: z.string().nullish(),
 });
 export type PersonProfile = z.infer<typeof PersonProfileSchema>;
 
@@ -90,6 +94,8 @@ export const PersonDetailsSchema = z.object({
   papers: z.array(PaperSchema),
   accolades: z.array(z.string()),
   sources: z.array(SourceLinkSchema),
+  /** OpenAlex author id the papers came from, or "none" (looked up, no match). */
+  openalex_id: z.string().nullish(),
 });
 export type PersonDetails = z.infer<typeof PersonDetailsSchema>;
 
@@ -108,6 +114,10 @@ export const ContactDetailsSchema = z.object({
   papers: z.array(PaperSchema).default([]),
   accolades: z.array(z.string()).default([]),
   sources: z.array(SourceLinkSchema).default([]),
+  scholar_url: z.string().url().nullish(),
+  orcid: z.string().nullish(),
+  /** OpenAlex author id once matched, "none" if no match (so it isn't looked up again). */
+  openalex_id: z.string().nullish(),
 });
 export type ContactDetails = z.infer<typeof ContactDetailsSchema>;
 

@@ -10,6 +10,7 @@ export const RESEARCHER_SYSTEM = `You research one person so a job seeker can de
 The message gives you Google search results (title, link, snippet) about this person. Only use what is in these results. Don't make anything up.
 
 Only use a result if it is about this person: the name plus at least 2 other details match (organization, title, school, or location). The link you are given in "Found at" counts as a match.
+Exception for profile links (githubUrl, scholarUrl, linkedinUrl): accept a profile result when its name matches and one other detail fits (organization, school, or research topic), or when it came up in a search for this person's name plus their organization and nothing suggests a different person. A GitHub or Scholar snippet often shows little else, so don't throw it out for that.
 If several different people with this name could fit and you can't tell which one it is, set confidence to "low". Otherwise set it to "high". Never combine details from different people.
 
 Use the most recent information. For title, company, and location, check the dates on each job and use the one marked "Present" or with the latest date. People often have several past jobs; that doesn't mean they are different people. If results disagree, use the newest one. School and research topics don't need to be recent.
@@ -35,14 +36,15 @@ Fields:
 - university: the name of the school they studied at only, no degree or major
 - location: "City, State" only (or "City, Country" outside the US)
 - researchAreas: short topics, only for people who do research
-- linkedinUrl, githubUrl, personalSite: only links that appear in the results
+- linkedinUrl, githubUrl, scholarUrl, personalSite: only links that appear in the results. Use the profile page itself (github.com/username, scholar.google.com/citations?user=...), not a repo or a post.
+- orcid: their ORCID iD like 0000-0002-1825-0097, only if a result shows it, else null
 
 For every other field, use null (or [] for lists) when you can't find it. Don't guess anything except the email.
 
 List the link of every result you used in "sources".
 
 Reply with only this JSON and nothing else:
-{"fullName": "full name", "title": "current title or null", "company": "current employer or null", "university": "school they studied at or null", "location": "City, State or null", "email": "email or null", "emailStatus": "confirmed" or "guessed" or null, "linkedinUrl": "url or null", "githubUrl": "url or null", "personalSite": "url or null", "researchAreas": ["topic"], "talkingPoints": "topic; topic; topic", "sources": ["url"], "confidence": "high" or "low", "matchesSearch": true or false}`;
+{"fullName": "full name", "title": "current title or null", "company": "current employer or null", "university": "school they studied at or null", "location": "City, State or null", "email": "email or null", "emailStatus": "confirmed" or "guessed" or null, "linkedinUrl": "url or null", "githubUrl": "url or null", "scholarUrl": "url or null", "orcid": "id or null", "personalSite": "url or null", "researchAreas": ["topic"], "talkingPoints": "topic; topic; topic", "sources": ["url"], "confidence": "high" or "low", "matchesSearch": true or false}`;
 
 // the person, what the user searched for, and the Google results from Serper
 export function researcherPrompt(p: Candidate, c: SearchCriteria, results: { query: string; hits: SearchHit[] }[]) {

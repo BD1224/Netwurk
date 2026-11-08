@@ -7,7 +7,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { AnimatePresence, motion, useReducedMotion, type Variants } from "motion/react";
 import { useRef, useState } from "react";
 import { ExtrasGrid, ResearchAreas, SourceList, toSourceLinks } from "@/components/shared/DetailsLists";
-import { CheckIcon, GitHubIcon, GlobeIcon, LinkedInIcon, MailIcon, PlusIcon, XIcon } from "@/components/shared/icons";
+import { CheckIcon, GitHubIcon, GlobeIcon, LinkedInIcon, MailIcon, PlusIcon, ScholarIcon, XIcon } from "@/components/shared/icons";
 import { PersonPhoto } from "@/components/shared/PersonPhoto";
 import type { DetailsState } from "@/hooks/usePersonDetails";
 import { cn } from "@/lib/utils";
@@ -95,6 +95,7 @@ function Panel({
   const links = [
     person.linkedin_url && { href: person.linkedin_url, label: "LinkedIn", Icon: LinkedInIcon },
     person.github_url && { href: person.github_url, label: "GitHub", Icon: GitHubIcon },
+    person.scholar_url && { href: person.scholar_url, label: "Scholar", Icon: ScholarIcon },
     person.personal_site && { href: person.personal_site, label: "Website", Icon: GlobeIcon },
   ].filter((l): l is { href: string; label: string; Icon: typeof GlobeIcon } => Boolean(l));
 

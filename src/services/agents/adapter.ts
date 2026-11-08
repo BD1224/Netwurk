@@ -61,6 +61,8 @@ export function toSearchPerson(p: AgentProfile): SearchPerson | null {
     email_status: p.email ? p.emailStatus : null,
     linkedin_url: httpUrl(p.linkedinUrl),
     github_url: httpUrl(p.githubUrl),
+    scholar_url: httpUrl(p.scholarUrl ?? null),
+    orcid: p.orcid ?? null,
     personal_site: (() => {
       const site = httpUrl(p.personalSite);
       return site && !isSocial(site) ? site : null;

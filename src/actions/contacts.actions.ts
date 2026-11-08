@@ -40,7 +40,8 @@ export async function saveContact(person: SearchPerson): Promise<Contact> {
   const searchPerson = SearchPersonSchema.parse(person);
   const { id: personId, ...rest } = searchPerson;
   const found = await getPersonDetails(personId, searchPerson).catch(() => null);
-  const profile = PersonProfileSchema.parse({
+  // Scholar link and ORCID have no table columns: they're kept in `details`.
+  const { scholar_url, orcid, ...profile } = PersonProfileSchema.parse({
     ...rest,
     talking_points: found?.talking_points ?? rest.talking_points,
   });
@@ -49,6 +50,9 @@ export async function saveContact(person: SearchPerson): Promise<Contact> {
     papers: found?.papers ?? [],
     accolades: found?.accolades ?? [],
     sources: found?.sources ?? [],
+    scholar_url: scholar_url ?? null,
+    orcid: orcid ?? null,
+    openalex_id: found?.openalex_id ?? null,
   };
 
   const { supabase, userId } = await requireUser();
