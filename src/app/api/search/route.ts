@@ -1,4 +1,4 @@
-// POST /api/search - the only API route. Runs on the server (a Vercel function).
+// POST /api/search - runs on the server (a Vercel function).
 // Checks the user is logged in (so strangers cannot spend our API credits), then runs
 // runSearch() and streams back one SearchEvent per line (NDJSON) as each person finishes.
 // Writes nothing to the database. Sets maxDuration so the search can run for a few minutes.
@@ -23,7 +23,11 @@ export async function POST(req: Request) {
       const send = (event: SearchEvent) =>
         controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
       try {
-        const count = await runSearch(criteria, (person) => send({ type: "person", person }));
+        const count = await runSearch(
+          criteria,
+          (person) => send({ type: "person", person }),
+          (found) => send({ type: "found", count: found }),
+        );
         send({ type: "done", count });
       } catch (e) {
         console.error("[search] failed:", e);

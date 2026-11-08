@@ -3,7 +3,7 @@
 // using the browser client from src/lib/supabase/client.ts and the functions in src/lib/contacts.ts.
 // RLS makes sure users only touch their own rows.
 // Returns { contacts: Contact[], loading, error,
-//           saveContact(person: PersonProfile), updateContact(id, { notes?, status? }), removeContact(id) }.
+//           saveContact(person: PersonProfile), updateContact(id, { notes?, status?, openalexId? }), removeContact(id) }.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import * as db from "@/lib/contacts";
@@ -46,7 +46,7 @@ export function useContacts() {
   );
 
   const updateContact = useCallback(
-    (id: string, changes: { notes?: string | null; status?: ContactStatus }) =>
+    (id: string, changes: { notes?: string | null; status?: ContactStatus; openalexId?: string | null }) =>
       run(async () => {
         const updated = await db.updateContact(supabase, id, changes);
         setContacts((prev) => prev.map((c) => (c.id === id ? updated : c)));

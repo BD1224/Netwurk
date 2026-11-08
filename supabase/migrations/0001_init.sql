@@ -29,6 +29,9 @@ create table if not exists public.contacts (
                   check (status in ('to_contact', 'reached_out', 'replied', 'met')),
   notes           text,
 
+  -- OpenAlex author id after the first papers lookup; 'none' = no match (see 0002_openalex_id.sql)
+  openalex_id     text,
+
   created_at      timestamptz not null default now()
 );
 

@@ -38,11 +38,13 @@ function fromRow(r: any): Contact {
     linkedinUrl: r.linkedin_url,
     githubUrl: r.github_url,
     personalSite: r.personal_site,
-    researchAreas: r.research_areas,
-    talkingPoints: r.talking_points,
-    sources: r.sources,
+    // nullable in the database; the app always sees a list / string
+    researchAreas: r.research_areas ?? [],
+    talkingPoints: r.talking_points ?? "",
+    sources: r.sources ?? [],
     status: r.status,
     notes: r.notes,
+    openalexId: r.openalex_id ?? null,
     createdAt: r.created_at,
   };
 }
@@ -70,9 +72,13 @@ export async function listContacts(supabase: SupabaseClient): Promise<Contact[]>
 export async function updateContact(
   supabase: SupabaseClient,
   id: string,
-  changes: { notes?: string | null; status?: ContactStatus },
+  changes: { notes?: string | null; status?: ContactStatus; openalexId?: string | null },
 ): Promise<Contact> {
-  const row = { notes: changes.notes, status: changes.status && ContactStatus.parse(changes.status) };
+  const row = {
+    notes: changes.notes,
+    status: changes.status && ContactStatus.parse(changes.status),
+    openalex_id: changes.openalexId,
+  };
   const { data, error } = await supabase.from("contacts").update(row).eq("id", id).select().single();
   if (error) throw new Error(`updateContact failed: ${error.message}`);
   return fromRow(data);

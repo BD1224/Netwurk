@@ -55,10 +55,60 @@ export type Contact = PersonProfile & {
   id: string;
   status: ContactStatus;
   notes: string | null;
+  // OpenAlex author id, saved after the first papers lookup.
+  // null = not looked up yet, "none" (NO_OPENALEX_MATCH) = looked up, no match.
+  openalexId: string | null;
   createdAt: string;
 };
 
 export type SearchEvent =
+  | { type: "found"; count: number } // how many candidates are being researched
   | { type: "person"; person: PersonProfile }
   | { type: "done"; count: number }
   | { type: "error"; message: string };
+
+// A search result as the UI holds it: the profile plus a browser-made key
+// (lists, "already saved" tracking). Never sent to the server.
+export type SearchResult = PersonProfile & { key: string };
+
+// A list that may still be loading, or have failed to load (repos, papers).
+export type Loadable<T> = T[] | "loading" | "error";
+
+// ---------- GitHub repos (fetched in the browser from api.github.com) ----------
+
+export type Repo = {
+  name: string;
+  description: string | null;
+  language: string | null;
+  stars: number;
+  pushedAt: string; // ISO timestamp
+  url: string;
+};
+
+// ---------- Papers (POST /api/papers, from OpenAlex) ----------
+
+// Saved in place of an id when the lookup found no matching author, so we don't look again.
+export const NO_OPENALEX_MATCH = "none";
+export const OpenAlexId = z.union([z.string().regex(/^A\d+$/), z.literal(NO_OPENALEX_MATCH)]);
+
+// Body: the person, plus their OpenAlex id if we already matched them once.
+export const PapersRequest = z.object({
+  person: PersonProfile,
+  openalexId: OpenAlexId.nullish(),
+});
+export type PapersRequest = z.infer<typeof PapersRequest>;
+
+export type Paper = {
+  title: string;
+  year: number | null;
+  venue: string | null;
+  url: string | null;
+};
+
+// openalexId "none" = no matching author found (e.g. most industry people).
+export type PapersResult = {
+  openalexId: string;
+  profileUrl: string | null; // their OpenAlex page
+  orcidUrl: string | null;
+  papers: Paper[]; // newest first, up to 5
+};

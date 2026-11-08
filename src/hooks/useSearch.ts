@@ -1,12 +1,14 @@
 "use client";
 // Browser-side React hook for the search. POSTs SearchCriteria to /api/search (the server,
 // which holds the secret Claude key) and reads the stream, adding each person to `people`.
-// Returns { runSearch(criteria), reset(), people: PersonProfile[], running, error }.
+// Returns { runSearch(criteria), reset(), people: PersonProfile[], found, running, error }.
+// found = how many candidates are being researched (null until the server says).
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PersonProfile, SearchCriteria, SearchEvent } from "@/types";
 
 export function useSearch() {
   const [people, setPeople] = useState<PersonProfile[]>([]);
+  const [found, setFound] = useState<number | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -17,6 +19,7 @@ export function useSearch() {
   const reset = useCallback(() => {
     abortRef.current?.abort();
     setPeople([]);
+    setFound(null);
     setRunning(false);
     setError(null);
   }, []);
@@ -26,6 +29,7 @@ export function useSearch() {
     const controller = new AbortController();
     abortRef.current = controller;
     setPeople([]);
+    setFound(null);
     setError(null);
     setRunning(true);
 
@@ -33,6 +37,7 @@ export function useSearch() {
     const handle = (line: string) => {
       if (!line.trim()) return;
       const event = JSON.parse(line) as SearchEvent;
+      if (event.type === "found") setFound(event.count);
       if (event.type === "person") setPeople((prev) => [...prev, event.person]);
       if (event.type === "error") setError(event.message);
     };
@@ -69,5 +74,5 @@ export function useSearch() {
     }
   }, []);
 
-  return { runSearch, reset, people, running, error };
+  return { runSearch, reset, people, found, running, error };
 }
