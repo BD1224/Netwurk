@@ -5,9 +5,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-/** Pages anyone can open. "/" is the landing page; /auth/callback finishes sign-in. */
+/** Pages anyone can open. "/" is the landing page; /auth/callback finishes sign-in; /privacy is the policy. */
 const isPublic = (path: string) =>
-  path === "/" || ["/signin", "/auth"].some((p) => path === p || path.startsWith(`${p}/`));
+  path === "/" || ["/signin", "/auth", "/privacy"].some((p) => path === p || path.startsWith(`${p}/`));
 
 export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
