@@ -1,28 +1,23 @@
-// /login. TEMPORARY: one-click login as the test user from .env.local.
-// Replace with the real magic-link login (signInWithOtp) once the UI is in.
-"use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+// "/login" route. Google, or email + password. Public; the proxy sends signed-in users to /search.
+// Accounts hold only the email and the contact book: signing up never creates a directory listing.
+import type { Metadata } from "next";
+import { SignInCard } from "@/components/auth/SignInCard";
+import { NetworkBackground } from "@/components/search/NetworkBackground";
+import { Header } from "@/components/shared/Header";
 
-const email = process.env.NEXT_PUBLIC_TEST_USER_EMAIL!;
-const password = process.env.NEXT_PUBLIC_TEST_USER_PASSWORD!;
+export const metadata: Metadata = { title: "Sign in" };
 
-export default function LoginPage() {
-  const router = useRouter();
-  const [error, setError] = useState("");
+type Props = { searchParams: Promise<{ error?: string | string[] }> };
 
-  async function login() {
-    const { error } = await createClient().auth.signInWithPassword({ email, password });
-    if (error) setError(`Login failed: ${error.message}`);
-    else router.push("/search");
-  }
-
+export default async function LoginPage({ searchParams }: Props) {
+  const { error } = await searchParams;
   return (
-    <div style={{ padding: 16 }}>
-      <p>Test user: {email}</p>
-      <button onClick={login}>Log in</button>
-      <pre>{error}</pre>
+    <div className="flex min-h-dvh flex-col">
+      <NetworkBackground mode="idle" foundCount={0} />
+      <Header />
+      <main className="relative z-10 flex flex-1 items-center justify-center px-4 pt-6 pb-24">
+        <SignInCard callbackError={typeof error === "string" ? error : undefined} />
+      </main>
     </div>
   );
 }

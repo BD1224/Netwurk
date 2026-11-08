@@ -1,5 +1,6 @@
 // Next.js proxy (formerly "middleware"). Runs before every page request.
-// Refreshes the Supabase login session and redirects logged-out users to /login.
+// Refreshes the Supabase login session, redirects logged-out users to /login, and sends
+// signed-in users on /login straight to /search. /login and /auth/* (email + Google links) are public.
 // It builds its own client (instead of lib/supabase/server.ts) because the proxy must
 // write refreshed cookies onto the outgoing response, which next/headers cannot do here.
 import { createServerClient } from "@supabase/ssr";
@@ -26,10 +27,18 @@ export async function proxy(request: NextRequest) {
   // getUser() validates the token with Supabase and triggers the cookie refresh.
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user && !request.nextUrl.pathname.startsWith("/login")) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
+  const path = request.nextUrl.pathname;
+  const isPublic = path === "/login" || path === "/auth" || path.startsWith("/auth/");
+  if (user && path === "/login") return redirectTo("/search");
+  if (!user && !isPublic) return redirectTo("/login");
   return response;
+
+  // Redirect, keeping any refreshed session cookies.
+  function redirectTo(pathname: string) {
+    const redirect = NextResponse.redirect(new URL(pathname, request.url));
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    return redirect;
+  }
 }
 
 export const config = {
