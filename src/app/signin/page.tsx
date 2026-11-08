@@ -18,7 +18,7 @@ export default async function SignInPage({ searchParams }: Props) {
       <Header />
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center gap-5 px-4 pt-6 pb-24">
         <SignInCard callbackError={typeof error === "string" ? error : undefined} />
-        <Link href="/privacy" className="rounded text-xs text-subtle underline-offset-4 hover:text-ink hover:underline">
+        <Link href="/privacy" className="rounded-full bg-white/85 px-3 py-1 text-xs text-subtle backdrop-blur-sm underline-offset-4 hover:text-ink hover:underline">
           Privacy policy
         </Link>
       </main>
