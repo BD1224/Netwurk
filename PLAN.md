@@ -5,188 +5,146 @@ Find people to network with → research them → save the ones you want as cont
 **Target users:** job seekers and/or people looking to network.
 **Principle:** minimal is better.
 
-**Stack:** Next.js (App Router, TS) · Supabase (Postgres + Auth) · Tailwind + DaisyUI · Framer Motion · Anthropic TS SDK (`@anthropic-ai/sdk`) · Zod · deployed on Vercel
+**Stack (actual):** Next.js 16 (App Router, TS, `proxy.ts`) · React 19 · Supabase (Postgres + Auth via `@supabase/ssr`) · Tailwind v4 (no DaisyUI) · Motion (`motion/react`) · Radix Dialog · Zod 4 · `@anthropic-ai/sdk` · Serper (Google search API) · OpenAlex (papers) · GitHub public API · deployed on Vercel
 
-**Integrations:** Supabase and the Claude API. The Claude API's built-in web search / web fetch tools do all the research, including reading LinkedIn, GitHub, university and company pages.
+**Status:** backend, frontend and auth are all built and wired together. No automated test runner is set up yet. The main gaps are listed under "Open items" at the bottom.
 
 ---
 
-## Pipeline
+## What actually happens (pipeline)
 
 | Stage | What happens | Where |
 |---|---|---|
-| 1. Specify | User fills in filters: companies, roles, states, universities, research areas, free text | `SearchForm.tsx` |
-| 2. Find + enrich | An orchestrator agent finds **up to 20** people (fewer is OK). Worker agents research each person in parallel. **Nothing is written to the database.** | `src/services/` |
-| 3. Display + save | Results stream into a **spreadsheet-style table** (DaisyUI `table`). Only rows the user clicks **Save** on go to Supabase. That's their contact book for future logins. | `/search`, `/contacts` |
+| 1. Specify | User sets filters: companies, roles, states, universities, research areas | `FilterBar.tsx`, `SearchSession.tsx` |
+| 2a. Find candidates | **No AI.** Code runs Google searches through Serper restricted to `site:linkedin.com/in`, parses names/titles/orgs out of result titles, and repeats up to 5 rounds (excluding names already found) to reach **20 people**. If research areas were given, it also searches Google Scholar profiles. | `services/agents/orchestrator.ts` |
+| 2b. Research each person | For each candidate, 2–5 Serper queries run (LinkedIn, role, university, GitHub, Scholar if academic). Then **one Claude call** (`claude-haiku-5-5`, no tools, medium effort) reads only those results and returns JSON. Five people are processed at a time. | `services/agents/researcher.ts`, `prompts.ts`, `runSearch.ts` |
+| 2c. Filter | A person is dropped if Claude reports `confidence: low` (maybe someone else with the same name), `matchesSearch: false`, or invalid JSON twice. Execs, VPs, chairs and public figures are also dropped. | `researcher.ts` |
+| 3. Stream | `POST /api/search` streams one NDJSON `SearchEvent` per line (`found`, `person`, `done`, `error`). **Nothing is written to the database.** | `app/api/search/route.ts`, `hooks/useSearch.ts` |
+| 4. Display + save | Results appear as **cards** (not a table) with skeletons while loading. Clicking a card opens a dialog with details, GitHub repos and papers. **Save** adds the person to Supabase. | `Discover.tsx`, `PersonCard.tsx`, `PersonDialog.tsx` |
+| 5. Contact book | `/contacts` has a filterable list, a detail panel, status and notes. Edits are optimistic, notes are debounced, and delete has a 4-second Undo. | `ContactBook.tsx`, `ContactsProvider.tsx` |
 
-Search results live only in the browser. Refreshing or leaving the page clears them, so anyone worth keeping should be saved.
+Search results live in the browser only. They survive a trip to `/contacts` (held in `SearchSessionProvider`) but not a refresh.
 
-**Results table columns (placeholder; the user will define these):** Name · Title · Company / University · Location · Email (`confirmed` / `guessed` badge) · LinkedIn · GitHub · Talking points · Save
+**Extras on a person (not in the original plan):**
+- **GitHub repos**: fetched in the browser from `api.github.com` using the username in `githubUrl`.
+- **Papers**: `POST /api/papers` looks up the person on OpenAlex. The first lookup asks Haiku which author matches. The id is saved in `contacts.openalex_id`, with `"none"` meaning no match, so matching happens once. After that it fetches the 5 newest papers by id.
+- **Illustrated avatars**: generated from the person's details (`IllustratedAvatar.tsx`, `avatar-look.ts`).
 
-**Email rule:**
-- If an email is stated explicitly in a public source (LinkedIn, university directory, job post, personal site) → store it with tag `confirmed`.
-- Otherwise → guess from the org's usual format (e.g. `<first initial><last name>@<school>.edu`) and tag it `guessed`.
+**Email rule:** `confirmed` if a result states the person's own address (shared addresses like `info@` don't count). Otherwise it's `guessed`, copying the org's visible format, or `first.last@<org domain>`. Null only if the org is unknown.
 
-**Talking points:** one short, broad paragraph of basic info.
+**Talking points:** a `; `-separated list of 3–5 short topics, each taken from something found about the person. (The original plan said one paragraph.)
 
 ---
 
-## File layout
+## Auth (built)
 
-Standard Next.js `src/` layout. The root folder name `wetNork/` is a placeholder.
+- Google OAuth, or email + password (sign in, create account with an emailed confirmation link, forgot password).
+- Routes: `/login`, `/set-password`, `/auth/callback` (OAuth/PKCE), `/auth/confirm` (token-hash links that work on any device).
+- `src/proxy.ts` refreshes the session, sends logged-out users to `/login`, and sends signed-in users on `/login` to `/search`.
+- Magic link was in the original plan and has been replaced by the above.
+- Accounts only hold the email and the contact book.
+
+---
+
+## File layout (actual)
 
 ```
-wetNork/                            # project root (name may change)
-├── README.md
-├── PLAN.md
-├── package.json
-├── tsconfig.json                   # path alias: "@/*" → "src/*"
-├── next.config.ts
-├── postcss.config.mjs              # Tailwind v4: theme + DaisyUI are set in globals.css (no tailwind.config)
-├── eslint.config.mjs
-├── .gitignore
-├── .env.local.example              # ANTHROPIC_API_KEY, NEXT_PUBLIC_SUPABASE_URL,
-│                                   # NEXT_PUBLIC_SUPABASE_ANON_KEY
-├── public/                         # static assets (logo, favicon)
-├── supabase/
-│   └── migrations/0001_init.sql    # creates the contacts table + access rules (schema only, no data)
+wetNork/
+├── AGENTS.md, README.md (stub), PLAN.md
+├── package.json, tsconfig.json (alias "@/*" → "src/*"), next.config.ts,
+│   postcss.config.mjs, eslint.config.mjs
+├── .env.local.example      # ANTHROPIC_API_KEY, SERPER_API_KEY, OPENALEX_API_KEY,
+│                           # NEXT_PUBLIC_SUPABASE_URL/ANON_KEY, TEST_USER_*, MOCK_SEARCH
+├── supabase/migrations/    # 0001_init.sql (contacts + RLS), 0002_openalex_id.sql
 ├── tests/
-│   └── unit/schemas.test.ts        # Zod schema tests
+│   ├── unit/schemas.test.ts    # placeholder: comments only, no test runner installed
+│   └── manual/save-contact.ts  # `npm run test:save-contact` (logs in, saves a fake contact)
 └── src/
-    ├── proxy.ts                    # sends logged-out users to /login
-    ├── app/                        # ROUTES: each folder = a URL
-    │   ├── layout.tsx              # DaisyUI theme, navbar
-    │   ├── page.tsx                # redirect → /search
-    │   ├── globals.css
-    │   ├── login/page.tsx          # /login (Supabase magic link)
-    │   ├── (app)/                  # group for logged-in pages (not part of the URL)
-    │   │   ├── layout.tsx          # shared navbar + login check
-    │   │   ├── search/page.tsx     # /search   FEATURE 1: filter form + live results table
-    │   │   └── contacts/page.tsx   # /contacts FEATURE 2: saved contacts table, notes edited in a modal
-    │   └── api/search/route.ts     # POST: checks login, runs a search, streams results back
-    ├── components/                 # UI only (DaisyUI + Framer Motion)
-    │   ├── search/   SearchForm.tsx, ResultsTable.tsx
-    │   ├── contacts/ ContactsTable.tsx, NotesModal.tsx, StatusBadge.tsx
-    │   └── shared/   EmailBadge.tsx, Navbar.tsx
-    ├── hooks/                      # ← how the UI gets data (frontend⇄backend contract)
-    │   ├── useSearch.ts            # browser → /api/search (server) → Claude
-    │   └── useContacts.ts          # browser → Supabase directly (public key + RLS)
-    ├── types/                      # ← SHARED TYPES (frontend + backend)
-    │   ├── index.ts                # Zod schemas + TS types
-    │   └── database.types.ts       # generated from Supabase: `supabase gen types typescript`
-    ├── services/                   # BACKEND ONLY (`import "server-only"`)
-    │   ├── agents/
-    │   │   ├── orchestrator.ts     # filters → up to 20 candidates
-    │   │   ├── researcher.ts       # one candidate → PersonProfile
-    │   │   └── prompts.ts
-    │   └── runSearch.ts            # runs both stages, yields each person as they finish
-    └── lib/
-        ├── anthropic.ts            # Anthropic SDK client (server only)
-        ├── supabase/client.ts      # browser client (used by useContacts, login)
-        └── supabase/server.ts      # server client (proxy + /api/search login check)
+    ├── proxy.ts
+    ├── app/
+    │   ├── layout.tsx, page.tsx (→ /search), globals.css
+    │   ├── login/, set-password/
+    │   ├── auth/callback/route.ts, auth/confirm/route.ts
+    │   ├── (app)/layout.tsx           # mounts ContactsProvider + SearchSessionProvider
+    │   ├── (app)/search/page.tsx
+    │   ├── (app)/contacts/page.tsx
+    │   └── api/search/route.ts, api/papers/route.ts
+    ├── components/
+    │   ├── auth/      SignInCard, SetPasswordCard, CheckInbox, GoogleMark, next-cookie
+    │   ├── search/    Discover, FilterBar, Headline, PersonCard, PersonDialog, ResultsHeader,
+    │   │              SearchSession, SkeletonCard, NetworkBackground, network-data, person-style
+    │   ├── contacts/  ContactBook, ContactList, ContactRow, ContactDetail, ContactsProvider,
+    │   │              FilterChips, TalkingPoints, status
+    │   └── shared/    Header, AnimatedTitle, DetailsLists, IllustratedAvatar, Toast, icons, avatar-look
+    ├── hooks/         useSearch, useContacts, usePersonDetails, useSignOut
+    ├── types/         index.ts (Zod schemas + types), database.types.ts
+    ├── services/      (server only) runSearch, papers, agents/{orchestrator,researcher,prompts}
+    └── lib/           anthropic, serper (server only) · supabase/{client,server} · contacts, github, dates, utils
 ```
 
 **How the browser reaches data:**
 ```
-hooks/useSearch.ts   ──▶ app/api/search/route.ts ──▶ services/ ──▶ Claude API   (server: holds the secret Claude key)
-hooks/useContacts.ts ──▶ Supabase                                               (browser: public key, RLS protects rows)
+useSearch        ──▶ /api/search ──▶ runSearch ──▶ Serper + Claude (Haiku)   (server holds the keys)
+usePersonDetails ──▶ /api/papers ──▶ OpenAlex + Claude (Haiku, first time only)
+                 ──▶ api.github.com                                          (browser, public)
+useContacts      ──▶ Supabase directly (anon key + RLS)
 ```
 
-**Boundary rule:** `components/` and `hooks/` import only from `types/`, `hooks/` and `lib/supabase/client.ts`. `services/` and `lib/anthropic.ts` are server-only (`import "server-only"`). A wrong import fails the build.
+Both API routes check the Supabase session first (401 if logged out) so strangers can't spend API credits.
 
-**Keys (`.env.local`, never committed; on Vercel, set in Environment Variables):**
+**Keys:**
 | Key | Used by | Visible to users? |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | server only | no |
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | browser | yes (fine, because RLS protects the data) |
-| Supabase service-role key | not used | n/a |
+| `ANTHROPIC_API_KEY`, `SERPER_API_KEY`, `OPENALEX_API_KEY` | server only | no |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | browser | yes (fine, RLS protects rows) |
+| `MOCK_SEARCH=1` | server | returns 3 fake people without calling Claude or Serper |
 
 ---
 
-## Supabase schema: one table
+## Supabase schema: one table (`contacts`)
 
-```sql
-contacts (
-  id uuid pk default gen_random_uuid(),
-  user_id uuid NOT NULL references auth.users,
-  -- person data (copied from the search result when saved)
-  full_name text NOT NULL,
-  title text, company text, university text,
-  location text,
-  email text,
-  email_status text,          -- 'confirmed' | 'guessed' | null
-  linkedin_url text, github_url text, personal_site text,
-  research_areas text[],
-  talking_points text,
-  sources text[],
-  -- user's own fields
-  status text default 'to_contact',  -- to_contact | reached_out | replied | met
-  notes text,
-  created_at timestamptz default now()
-)
--- RLS: each user can only read/write rows where user_id = auth.uid()
-```
-User accounts are stored by Supabase Auth (`auth.users`), so we don't create a users table.
+Columns: `id`, `user_id` (defaults to `auth.uid()`, cascades on user delete), `full_name`, `title`, `company`, `university`, `location`, `email`, `email_status` (`confirmed`|`guessed`), `linkedin_url`, `github_url`, `personal_site`, `research_areas text[]`, `talking_points`, `sources text[]`, `status` (`to_contact`|`reached_out`|`replied`|`met`), `notes`, `openalex_id` (migration 0002), `created_at`.
+
+RLS: four policies (select, insert, update, delete), each limited to `user_id = auth.uid()`.
 
 ---
 
-## Frontend ⇄ Backend contract
+## Shared types (`src/types/index.ts`)
 
-**Shared types (`src/types/index.ts`)**
-| Type | Shape |
+`SearchCriteria` · `Candidate` (`name, title, org, urls`) · `EmailStatus` · `PersonProfile` · `ResearchResult` (profile + `confidence` + `matchesSearch`, never saved) · `ContactStatus` · `Contact` · `SearchEvent` (`found` | `person` | `done` | `error`) · `SearchResult` (profile + browser key) · `Repo` · `Paper` · `PapersRequest` / `PapersResult` · `OpenAlexId`.
+
+Note: `SearchCriteria` still has a `freeText` field, but the search code ignores it.
+
+---
+
+## Decisions (current)
+- Auth: Supabase, Google + email/password
+- Up to 20 results per search; fewer is fine (filtering drops uncertain people)
+- Public info only, but any public source (LinkedIn included)
+- Search is **Serper + code**, not Claude's web tools. Claude only reads search snippets and cannot fetch pages.
+- One model: **`claude-haiku-5-5`**, for researching and for the OpenAlex author match. Sonnet and Opus are not used.
+- Research: 5 people at a time, to avoid Serper rate limits (429s retry up to 3 times)
+- Search results are not stored; only saved contacts go to Supabase
+- Contacts: the browser talks to Supabase directly
+- `/api/search` uses `maxDuration = 300`
+- No outreach drafting; already-saved people are not skipped in search
+
+## Changes from the original plan
+| Original | Now |
 |---|---|
-| `SearchCriteria` | `{ companies?, roles?, states?, universities?, researchAreas?, freeText? }` |
-| `EmailStatus` | `'confirmed' \| 'guessed'` |
-| `PersonProfile` | one search result (the person fields above) |
-| `ContactStatus` | `'to_contact' \| 'reached_out' \| 'replied' \| 'met'` |
-| `Contact` | `PersonProfile & { id, status, notes, createdAt }` |
-| `SearchEvent` | `{type:'person', person}` · `{type:'done', count}` · `{type:'error', message}` |
+| Claude `web_search` / `web_fetch` do the research | Serper search, then Claude reads snippets with no tools |
+| Orchestrator agent finds the people | Plain code, with no AI call |
+| Sonnet orchestrator, Haiku to try | Haiku only |
+| DaisyUI table | Custom Tailwind cards, a detail dialog and a contacts list/panel |
+| Magic-link login | Google + email/password |
+| One-paragraph talking points | 3–5 topic list |
+| Contacts: notes, status | Same, plus repos, papers and OpenAlex id |
 
-**Search (streaming API route)**
-| Call | Returns |
-|---|---|
-| `POST /api/search` with `SearchCriteria` | a stream of `SearchEvent`s |
-| `useSearch()` hook (wraps the call above) | `{ runSearch(criteria), people: PersonProfile[], running, error }` |
-
-**Contacts (`useContacts()` hook, calls Supabase directly)**
-| Returns | Purpose |
-|---|---|
-| `contacts: Contact[]`, `loading`, `error` | the user's contact book |
-| `saveContact(person: PersonProfile)` | insert a row |
-| `updateContact(id, { notes?, status? })` | edit notes / status |
-| `removeContact(id)` | delete a row |
-
-**Backend-only:** `runSearch()`, `findCandidates()`, `researchPerson()`.
-
----
-
-## Agent harness
-
-### Chosen: plain Claude API calls, with fan-out in our own code
-1. **Orchestrator** (`claude-sonnet-5-5`, low effort, `web_search`): filters → JSON list of up to 20 `{name, title, org, urls}`.
-2. **Researchers** (one call per person, ~5 at a time via `Promise.all`, `web_search` + `web_fetch`): each returns a `PersonProfile`, checked with Zod and streamed to the browser immediately. Start on `claude-sonnet-5-5`. Try `claude-haiku-5-5` for researchers if cost or speed matters, after confirming it supports the web tools we need.
-3. Vercel: the `/api/search` request stays open while it streams. Set `export const maxDuration` to your plan's max on that route.
-
-### Alternatives (for reference)
-- **Managed Agents (hosted by Anthropic):** define the agent once (prompt, web tools, optional subagents), e.g. as `agents/researcher/agent.md` synced with the `ant` CLI. Each search starts a "session" with one API call, Anthropic runs the loop, and we stream back the final JSON. No timeout worries, but it's a newer beta API.
-- **Claude Agent SDK:** Claude Code as a library: `query({ prompt })`, with subagents as `.claude/agents/*.md` files. It needs a long-running server, which doesn't fit Vercel well.
-
-### Why no GitHub API
-`web_fetch` can read `github.com/<user>` directly. We don't need exact repo stats.
-
----
-
-## Decisions
-- Auth: Supabase Auth (magic link)
-- Up to 20 results per search; fewer is OK
-- Public info only, but any public source is fair game (LinkedIn included)
-- Email: `confirmed` if stated explicitly in a source, otherwise `guessed`
-- Search results are **not** stored. Only saved contacts go to Supabase.
-- Contacts: the browser calls Supabase directly (no server step). Only the search goes through the server.
-- Models: Sonnet 5.5 (Haiku 5.5 to try for researchers); no Opus
-- Vercel; a slow search is acceptable
-- No outreach drafting; no skipping of already-saved people
-- Filters are on the search form only. Results and contacts are plain tables.
-
-## Next step
-The user drafts the exact data to collect per person. The `contacts` columns, `PersonProfile` and the results-table columns are placeholders until then.
+## Open items
+- **Tests:** `tests/unit/schemas.test.ts` is only a comment, and there's no test runner in `package.json`.
+- **README** is a one-line stub with no setup steps.
+- **Column definitions** are still working defaults. The user hasn't finalized them.
+- **Unused:** `freeText` in `SearchCriteria` and the `university` search (it only affects the query text).
+- **Search quality** depends on LinkedIn title parsing, which is fragile. Headline formats vary.
+- **Deploy:** not yet confirmed on Vercel. Needs env vars set, including `OPENALEX_API_KEY`, and a Supabase redirect URL for the OAuth callback.
+- **Housekeeping:** `database.types.ts` may need regenerating after migration 0002.
