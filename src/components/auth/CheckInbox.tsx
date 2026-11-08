@@ -1,12 +1,18 @@
 "use client";
-// The sign-in card after the magic link is sent: envelope pops in with a pulsing ring.
+// The sign-in card after we email a link (confirm a new account, or reset a password):
+// envelope pops in with a pulsing ring.
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef } from "react";
 import { MailIcon } from "@/components/shared/icons";
 
-type Props = { email: string; onUseDifferentEmail: () => void };
+type Props = {
+  email: string;
+  /** What the link is for, e.g. "to confirm your account". */
+  purpose: string;
+  onUseDifferentEmail: () => void;
+};
 
-export function CheckInbox({ email, onUseDifferentEmail }: Props) {
+export function CheckInbox({ email, purpose, onUseDifferentEmail }: Props) {
   const reduce = useReducedMotion();
   // The submit button that had focus is gone; keep keyboard users inside the card.
   const backRef = useRef<HTMLButtonElement>(null);
@@ -32,7 +38,7 @@ export function CheckInbox({ email, onUseDifferentEmail }: Props) {
       </motion.span>
       <h1 className="m-0 text-3xl font-semibold tracking-[-0.02em]">Check your inbox</h1>
       <p className="m-0 text-sm text-muted">
-        We sent a link to <span className="font-medium break-all text-ink">{email}</span>
+        We sent a link {purpose} to <span className="font-medium break-all text-ink">{email}</span>
       </p>
       <button
         ref={backRef}
@@ -40,7 +46,7 @@ export function CheckInbox({ email, onUseDifferentEmail }: Props) {
         onClick={onUseDifferentEmail}
         className="min-h-11 rounded-full px-4 text-sm text-muted transition-colors hover:bg-soft hover:text-ink"
       >
-        Use a different email
+        Back to sign in
       </button>
     </div>
   );
