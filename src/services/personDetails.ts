@@ -4,17 +4,18 @@ import "server-only";
 //   papers, accolades, sources, talking points - whatever the search agent saved for that person
 // Never scrapes LinkedIn: the LinkedIn URL is only ever shown as a link.
 //
-// People come from the agent's recent search results (agents/resultCache).
+// The person comes from the caller (the browser's copy of the search result) or, failing that,
+// from the agent's recent results (agents/resultCache, in memory: unreliable on serverless).
 // The agent doesn't collect papers or accolades yet, so those are empty.
 import { githubUsername } from "@/lib/github";
-import { RepoSchema, type PersonDetails, type Repo } from "@/types";
+import { RepoSchema, type PersonDetails, type Repo, type SearchPerson } from "@/types";
 import { sourceLinks } from "./agents/adapter";
 import { recallPerson } from "./agents/resultCache";
 
 const DAY_SECONDS = 24 * 60 * 60;
 
-export async function getPersonDetails(id: string): Promise<PersonDetails | null> {
-  const person = recallPerson(id);
+export async function getPersonDetails(id: string, given?: SearchPerson): Promise<PersonDetails | null> {
+  const person = given ?? recallPerson(id);
   if (!person) return null;
 
   const username = githubUsername(person.github_url);

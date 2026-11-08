@@ -17,6 +17,13 @@ export function toAgentCriteria(c: SearchCriteria): AgentCriteria {
   };
 }
 
+/** Personal social media: never kept as a source (only professional links are). */
+const SOCIAL_HOSTS = ["instagram.com", "facebook.com", "tiktok.com", "x.com", "twitter.com", "threads.net", "snapchat.com", "pinterest.com"];
+const isSocial = (url: string) => {
+  const host = new URL(url).hostname.toLowerCase();
+  return SOCIAL_HOSTS.some((d) => host === d || host.endsWith(`.${d}`));
+};
+
 const httpUrl = (v: string | null) => {
   if (!v) return null;
   try {
@@ -54,7 +61,10 @@ export function toSearchPerson(p: AgentProfile): SearchPerson | null {
     email_status: p.email ? p.emailStatus : null,
     linkedin_url: httpUrl(p.linkedinUrl),
     github_url: httpUrl(p.githubUrl),
-    personal_site: httpUrl(p.personalSite),
+    personal_site: (() => {
+      const site = httpUrl(p.personalSite);
+      return site && !isSocial(site) ? site : null;
+    })(),
     research_areas: p.researchAreas,
     // The agent separates talking points with "; ", the app with newlines.
     talking_points:
@@ -63,7 +73,7 @@ export function toSearchPerson(p: AgentProfile): SearchPerson | null {
         .map((t) => t.trim())
         .filter(Boolean)
         .join("\n") || null,
-    sources: [...new Set(p.sources.flatMap((s) => httpUrl(s) ?? []))],
+    sources: [...new Set(p.sources.flatMap((s) => httpUrl(s) ?? []))].filter((s) => !isSocial(s)),
   });
   return parsed.success ? parsed.data : null;
 }

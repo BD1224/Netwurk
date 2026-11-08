@@ -74,7 +74,13 @@ async function* runAgentSearch(
         console.log(`[search] dropped ${candidates[i].name}: ${log.dropReason ?? "profile didn't fit the app's format"}`);
         return null;
       }
-      return { ...person, photo_url: await findPhoto(person, signal) };
+      const photo = await findPhoto(person, signal);
+      return {
+        ...person,
+        photo_url: photo.photoUrl,
+        github_url: person.github_url ?? photo.githubUrl,
+        sources: photo.source ? [...person.sources, photo.source] : person.sources,
+      };
     } catch (err) {
       if (!signal?.aborted) console.error(`research failed for ${candidates[i].name}`, err);
       return null;

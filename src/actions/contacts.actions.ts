@@ -37,8 +37,9 @@ async function requireUser() {
  * the same details as the Discover overlay. Saving someone twice returns the existing contact.
  */
 export async function saveContact(person: SearchPerson): Promise<Contact> {
-  const { id: personId, ...rest } = SearchPersonSchema.parse(person);
-  const found = await getPersonDetails(personId).catch(() => null);
+  const searchPerson = SearchPersonSchema.parse(person);
+  const { id: personId, ...rest } = searchPerson;
+  const found = await getPersonDetails(personId, searchPerson).catch(() => null);
   const profile = PersonProfileSchema.parse({
     ...rest,
     talking_points: found?.talking_points ?? rest.talking_points,

@@ -2,10 +2,15 @@ import "server-only";
 // Finds a professional photo for a person the agent researched, in this order:
 //   1. a headshot on a page the agent already cited (team, lab, speaker page) whose alt text names them
 //   2. their own website: a named headshot, else the site's og:image
-//   3. their GitHub avatar
+//   3. the avatar on the GitHub profile the agent found
+//   4. no GitHub found: a GitHub profile with their name that lists the same company
+//      (its link is added to the person, with the profile as a source)
+//   5. Gravatar, only for an email a public page confirmed is theirs
+// GitHub's default pattern avatars and Gravatar placeholders are skipped: they aren't photos.
 // Never LinkedIn: LinkedIn's terms forbid scraping, so we never fetch its pages or use its images
 // (licdn.com). Same for social media and people-search / data-broker sites. Pages are only read
 // when the site's robots.txt allows it. We store the image's URL only, never the image itself.
+import { createHash } from "node:crypto";
 import { githubUsername } from "@/lib/github";
 import type { SearchPerson } from "@/types";
 
@@ -63,7 +68,17 @@ function usableImage(raw: string | null): string | null {
   return u.href;
 }
 
-export async function findPhoto(person: SearchPerson, signal?: AbortSignal): Promise<string | null> {
+export type PhotoResult = {
+  /** The photo's URL, or null if none was found. */
+  photoUrl: string | null;
+  /** A GitHub profile matched by name + company (when the agent didn't find one). */
+  githubUrl: string | null;
+  /** Where the photo came from, if it isn't already in the person's sources. */
+  source: string | null;
+};
+
+export async function findPhoto(person: SearchPerson, signal?: AbortSignal): Promise<PhotoResult> {
+  const none: PhotoResult = { photoUrl: null, githubUrl: null, source: null };
   const ownSite = person.personal_site ? parseUrl(person.personal_site) : null;
   const pages = [
     ...(ownSite ? [ownSite] : []),
@@ -79,33 +94,135 @@ export async function findPhoto(person: SearchPerson, signal?: AbortSignal): Pro
   // 1. A headshot that names them, on any page.
   for (const page of read) {
     const named = page && namedHeadshot(page.html, page.url, person.full_name);
-    if (named) return named;
+    if (named) return { ...none, photoUrl: named };
   }
   // 2. Their own site's preview image.
   if (ownSite && read[0]) {
     const og = usableImage(ogImage(read[0].html, read[0].url));
-    if (og) return og;
+    if (og) return { ...none, photoUrl: og };
   }
-  // 3. GitHub avatar.
-  return githubAvatar(person.github_url, signal);
+  // 3. The GitHub profile the agent found.
+  const username = githubUsername(person.github_url);
+  if (username) {
+    const profile = await githubProfile(username, signal);
+    const avatar = profile && (await realAvatar(profile.avatar_url, signal));
+    if (avatar) return { ...none, photoUrl: avatar };
+  }
+  // 4. A GitHub profile with their name that lists the same company.
+  if (!username) {
+    const match = await githubByNameAndCompany(person, signal);
+    if (match) {
+      const avatar = await realAvatar(match.avatar_url, signal);
+      return { photoUrl: avatar, githubUrl: match.html_url, source: match.html_url };
+    }
+  }
+  // 5. Gravatar, only for an email a public page confirmed is theirs.
+  if (person.email && person.email_status === "confirmed") {
+    const gravatar = await gravatarPhoto(person.email, signal);
+    if (gravatar) return { ...none, photoUrl: gravatar };
+  }
+  return none;
 }
 
-async function githubAvatar(githubUrl: string | null, signal?: AbortSignal): Promise<string | null> {
-  const username = githubUsername(githubUrl);
-  if (!username) return null;
-  const token = process.env.GITHUB_TOKEN;
+// ---------- GitHub ----------
+
+type GitHubProfile = {
+  login: string;
+  html_url: string;
+  avatar_url: string;
+  name: string | null;
+  company: string | null;
+  bio: string | null;
+};
+
+const githubHeaders = () => {
+  const token = process.env.GITHUB_TOKEN; // optional: raises GitHub's limits a lot
+  return {
+    Accept: "application/vnd.github+json",
+    "User-Agent": "networking-finder",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+};
+
+async function githubProfile(login: string, signal?: AbortSignal): Promise<GitHubProfile | null> {
   try {
-    const res = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}`, {
-      headers: {
-        Accept: "application/vnd.github+json",
-        "User-Agent": "networking-finder",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+    const res = await fetch(`https://api.github.com/users/${encodeURIComponent(login)}`, {
+      headers: githubHeaders(),
       signal: withTimeout(signal, 5000),
     });
+    return res.ok ? ((await res.json()) as GitHubProfile) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Lowercase words, without "@", "inc", "llc" and the like: "@Stripe, Inc." -> "stripe". */
+const companyWords = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w && !["inc", "llc", "ltd", "corp", "co", "the", "company"].includes(w))
+    .join(" ");
+
+/**
+ * Searches GitHub users by full name and keeps the first (of the top 3) whose profile lists the
+ * same company in its company field or bio. Without that match it could be someone else.
+ */
+async function githubByNameAndCompany(person: SearchPerson, signal?: AbortSignal): Promise<GitHubProfile | null> {
+  const company = person.company ? companyWords(person.company) : "";
+  const parts = person.full_name.trim().split(/\s+/);
+  // Needs a company to check against and a real first + last name (not "Tony C.").
+  if (!company || parts.length < 2 || parts[parts.length - 1].replace(/\./g, "").length < 2) return null;
+  try {
+    const q = encodeURIComponent(`fullname:"${person.full_name}" type:user`);
+    const res = await fetch(`https://api.github.com/search/users?q=${q}&per_page=3`, {
+      headers: githubHeaders(),
+      signal: withTimeout(signal, 5000),
+    });
+    if (!res.ok) return null; // includes GitHub's rate limit (403/429)
+    const { items } = (await res.json()) as { items?: { login: string }[] };
+    for (const item of items ?? []) {
+      const profile = await githubProfile(item.login, signal);
+      if (!profile) continue;
+      const listed = companyWords(`${profile.company ?? ""} ${profile.bio ?? ""}`);
+      if (` ${listed} `.includes(` ${company} `)) return profile;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The avatar, unless it's GitHub's default pattern (identicon): those are small PNGs, while an
+ * uploaded photo at 420px is a much bigger image.
+ */
+async function realAvatar(avatarUrl: string, signal?: AbortSignal): Promise<string | null> {
+  const url = usableImage(avatarUrl);
+  if (!url) return null;
+  try {
+    const sized = new URL(url);
+    sized.searchParams.set("s", "420");
+    const res = await fetch(sized, { signal: withTimeout(signal, 5000) });
     if (!res.ok) return null;
-    const data = (await res.json()) as { avatar_url?: string };
-    return usableImage(data.avatar_url ?? null);
+    const bytes = (await res.arrayBuffer()).byteLength;
+    const png = (res.headers.get("content-type") ?? "").includes("png");
+    return png && bytes < 10_000 ? null : url;
+  } catch {
+    return null;
+  }
+}
+
+// ---------- Gravatar ----------
+
+/** Their Gravatar photo, if they set one for this email (d=404: no placeholder). */
+async function gravatarPhoto(email: string, signal?: AbortSignal): Promise<string | null> {
+  const hash = createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
+  const url = `https://gravatar.com/avatar/${hash}?s=200&d=404`;
+  try {
+    const res = await fetch(url, { method: "HEAD", signal: withTimeout(signal, 4000) });
+    return res.ok ? url : null;
   } catch {
     return null;
   }

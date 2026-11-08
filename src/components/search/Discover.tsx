@@ -14,8 +14,6 @@ import { usePersonDetails } from "@/hooks/usePersonDetails";
 import { SEARCH_STEPS, type SearchCriteria, type SearchPerson } from "@/types";
 import { EMPTY_FILTERS, FilterBar, type FilterValues } from "./FilterBar";
 import { Headline } from "./Headline";
-import { INTRO_COOKIE } from "./intro-cookie";
-import { LinkUpIntro } from "./LinkUpIntro";
 import { NetworkBackground, type NetworkMode } from "./NetworkBackground";
 import { FOUND, FOUND_PER_STEP } from "./network-data";
 import { PersonCard } from "./PersonCard";
@@ -28,19 +26,13 @@ import { SkeletonCard } from "./SkeletonCard";
 const fade = { initial: { opacity: 0, y: 8 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -8 } };
 
 type Props = {
-  /** Play the "linking up" intro before showing the page (first visit this browser session). */
-  playIntro: boolean;
   initialContactCount: number;
   /** Search-result ids already in the contact book (from the server). */
   initialSavedIds: string[];
 };
 
-export function Discover({ playIntro, initialContactCount, initialSavedIds }: Props) {
+export function Discover({ initialContactCount, initialSavedIds }: Props) {
   const { search, filters, setFilters } = useSearchSession();
-  // playing: only the intro is on screen. revealed: the intro is fading out over the page. off: no intro.
-  const [intro, setIntro] = useState<"playing" | "revealed" | "off">(() =>
-    playIntro && search.people.length === 0 ? "playing" : "off",
-  );
   // Saved = already in the contact book, so it carries across searches and page visits.
   const [saved, setSaved] = useState<Set<string>>(() => new Set(initialSavedIds));
   const [contactCount, setContactCount] = useState(initialContactCount);
@@ -50,7 +42,8 @@ export function Discover({ playIntro, initialContactCount, initialSavedIds }: Pr
 
   // ---------- Details overlay, driven by ?person={id} ----------
   const openId = useSearchParams().get("person");
-  const details = usePersonDetails(openId);
+  const resultPerson = search.people.find((p) => p.id === openId) ?? null;
+  const details = usePersonDetails(openId, resultPerson);
   // From the results if we have them; a shared link with no results waits for the details.
   const openPerson =
     search.people.find((p) => p.id === openId) ?? (details?.status === "ready" ? details.data.person : null);
@@ -145,103 +138,99 @@ export function Discover({ playIntro, initialContactCount, initialSavedIds }: Pr
     <MotionConfig reducedMotion="user">
       <div className="relative min-h-dvh overflow-x-clip">
         <NetworkBackground mode={phase} foundCount={foundCount} />
-        {intro !== "playing" && (
-          <>
-          <Header contactCount={contactCount} />
+        <Header contactCount={contactCount} />
 
-          <motion.main
-            className="relative z-10 mx-auto w-full max-w-[1072px] px-4 pb-28"
-            initial={false}
-            animate={{ paddingTop: topPadding }}
-            transition={{ type: "spring", stiffness: 120, damping: 22 }}
-          >
-            <AnimatePresence initial={false}>
-              {phase !== "results" && (
-                <motion.div
-                  key="headline"
-                  className="overflow-hidden"
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-                >
-                  <div className="pt-2 pb-9">
-                    <Headline />
-                  </div>
+        <motion.main
+          className="relative z-10 mx-auto w-full max-w-[1072px] px-4 pb-28"
+          initial={false}
+          animate={{ paddingTop: topPadding }}
+          transition={{ type: "spring", stiffness: 120, damping: 22 }}
+        >
+          <AnimatePresence initial={false}>
+            {phase !== "results" && (
+              <motion.div
+                key="headline"
+                className="overflow-hidden"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+              >
+                <div className="pt-2 pb-9">
+                  <Headline />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <FilterBar
+            values={filters}
+            onChange={setFilters}
+            onSubmit={submit}
+            running={search.running}
+            inputRef={firstFieldRef}
+          />
+
+          <div className="mt-6 flex min-h-9 justify-center">
+            <AnimatePresence mode="wait" initial={false}>
+              {phase === "idle" && search.error && (
+                <motion.p key="error" {...fade} role="alert" className="text-center text-[15px] text-[#B91C1C]">
+                  {search.error}
+                </motion.p>
+              )}
+              {phase === "searching" && (
+                <motion.div key="steps" {...fade}>
+                  <SearchSteps current={search.step} />
                 </motion.div>
               )}
             </AnimatePresence>
+          </div>
 
-            <FilterBar
-              values={filters}
-              onChange={setFilters}
-              onSubmit={submit}
-              running={search.running}
-              inputRef={firstFieldRef}
-            />
+          <AnimatePresence>
+            {phase === "results" && (
+              <motion.section
+                key="results"
+                aria-label="Results"
+                className="mx-auto mt-6 max-w-[1040px]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <ResultsHeader count={search.people.length} running={search.running} onNewSearch={newSearch} />
 
-            <div className="mt-6 flex min-h-9 justify-center">
-              <AnimatePresence mode="wait" initial={false}>
-                {phase === "idle" && search.error && (
-                  <motion.p key="error" {...fade} role="alert" className="text-center text-[15px] text-[#B91C1C]">
+                {search.error && (
+                  <p role="alert" className="mt-3 text-[15px] text-[#B91C1C]">
                     {search.error}
-                  </motion.p>
+                  </p>
                 )}
-                {phase === "searching" && (
-                  <motion.div key="steps" {...fade}>
-                    <SearchSteps current={search.step} />
-                  </motion.div>
+                {!search.running && search.people.length === 0 && !search.error && (
+                  <p className="mt-3 text-[15px] text-muted">No matches. Try fewer or broader fields.</p>
                 )}
-              </AnimatePresence>
-            </div>
 
-            <AnimatePresence>
-              {phase === "results" && (
-                <motion.section
-                  key="results"
-                  aria-label="Results"
-                  className="mx-auto mt-6 max-w-[1040px]"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
+                <ul
+                  className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4"
+                  style={{ perspective: 1200 }}
                 >
-                  <ResultsHeader count={search.people.length} running={search.running} onNewSearch={newSearch} />
-
-                  {search.error && (
-                    <p role="alert" className="mt-3 text-[15px] text-[#B91C1C]">
-                      {search.error}
-                    </p>
-                  )}
-                  {!search.running && search.people.length === 0 && !search.error && (
-                    <p className="mt-3 text-[15px] text-muted">No matches. Try fewer or broader fields.</p>
-                  )}
-
-                  <ul
-                    className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4"
-                    style={{ perspective: 1200 }}
-                  >
-                    {search.people.map((person) => (
-                      <li key={person.id} className="flex">
-                        <PersonCard
-                          person={person}
-                          saved={saved.has(person.id)}
-                          onSave={() => save(person)}
-                          onOpen={() => openDetails(person)}
-                        />
-                      </li>
-                    ))}
-                    {Array.from({ length: skeletons }, (_, i) => (
-                      <li key={`skeleton-${i}`} className="flex">
-                        <SkeletonCard />
-                      </li>
-                    ))}
-                  </ul>
-                </motion.section>
-              )}
-            </AnimatePresence>
-          </motion.main>
-          </>
-        )}
+                  {search.people.map((person) => (
+                    <li key={person.id} className="flex">
+                      <PersonCard
+                        person={person}
+                        saved={saved.has(person.id)}
+                        onSave={() => save(person)}
+                        onOpen={() => openDetails(person)}
+                      />
+                    </li>
+                  ))}
+                  {Array.from({ length: skeletons }, (_, i) => (
+                    <li key={`skeleton-${i}`} className="flex">
+                      <SkeletonCard />
+                    </li>
+                  ))}
+                </ul>
+              </motion.section>
+            )}
+          </AnimatePresence>
+        </motion.main>
 
         <PersonDialog
           person={openPerson}
@@ -252,17 +241,6 @@ export function Discover({ playIntro, initialContactCount, initialSavedIds }: Pr
         />
 
         <Toast toast={toast} />
-
-        {intro !== "off" && (
-          <LinkUpIntro
-            onReveal={() => {
-              // Session cookie: the intro plays again in a new browser session or after logging out.
-              document.cookie = `${INTRO_COOKIE}=1; path=/; SameSite=Lax`;
-              setIntro("revealed");
-            }}
-            onDone={() => setIntro("off")}
-          />
-        )}
       </div>
     </MotionConfig>
   );
