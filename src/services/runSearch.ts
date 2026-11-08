@@ -74,7 +74,7 @@ export async function runSearch(
   return sent;
 }
 
-// MOCK_SEARCH=1 in .env.local: sends 3 fake people, one per second, without calling Gemini
+// MOCK_SEARCH=1 in .env.local: sends 3 fake people, one per second, without calling the AI
 // or Serper. For testing the UI without spending tokens.
 async function mockSearch(
   onPerson: (person: PersonProfile) => void,

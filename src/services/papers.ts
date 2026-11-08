@@ -6,7 +6,7 @@
 // OPENALEX_API_KEY is optional but needed in production: without it, requests share
 // a tiny daily budget with everyone on the same IP (e.g. all of Vercel).
 import "server-only";
-import { callGemini, pullJson } from "@/lib/gemini";
+import { callAI, pullJson } from "@/lib/ai";
 import { NO_OPENALEX_MATCH, type Paper, type PapersResult, type PersonProfile } from "@/types";
 
 const API = "https://api.openalex.org";
@@ -109,7 +109,7 @@ export async function findAuthor(person: PersonProfile): Promise<string | null> 
     `google scholar profile: ${person.scholarUrl ?? "unknown"}\n\n` +
     `Database entries:\n${list}`;
 
-  const answer = pullJson(await callGemini(system, prompt, "low"));
+  const answer = pullJson(await callAI(system, prompt, "low"));
   const n = answer?.match;
   if (typeof n !== "number" || n < 1 || n > authors.length) return null;
   return shortId(authors[n - 1].id);

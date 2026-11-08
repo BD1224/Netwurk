@@ -1,13 +1,13 @@
 import "server-only";
 import { SearchCriteria, Candidate } from "@/types";
-import { CallLog } from "@/lib/gemini";
+import { CallLog } from "@/lib/ai";
 import { serperSearch, SearchHit } from "@/lib/serper";
 
 const MAX_PEOPLE = 20;
 const MAX_ROUNDS = 5;
 const MAX_QUERY_WORDS = 32; // Google ignores words past about 32
 
-// Stage 1 (no Gemini, just Serper): filters -> up to 20 people.
+// Stage 1 (no AI): filters -> up to 20 people.
 // Searches LinkedIn through Serper. After each round, the people we already found
 // are excluded with -"Name" so the next search shows new people.
 // exclude: names the user has already been shown. They're excluded the same way (after the

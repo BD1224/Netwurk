@@ -1,6 +1,6 @@
 "use client";
 // Browser-side React hook for the search. POSTs SearchCriteria to /api/search (the server,
-// which holds the secret Gemini key) and reads the stream, adding each person to `people`.
+// which holds the secret AI key) and reads the stream, adding each person to `people`.
 // Returns { runSearch(criteria), reset(), people: SearchResult[], found, running, searched, error }.
 // Each person gets a browser-made `key` (for lists and "saved" tracking).
 // found = how many candidates are being researched (null until the server says).
