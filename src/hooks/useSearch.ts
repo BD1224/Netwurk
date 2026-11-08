@@ -8,28 +8,25 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SearchCriteria, SearchEvent, SearchResult } from "@/types";
 
-// Names of people already shown in this browser, sent with each search so the server finds new
-// people. Kept in localStorage (last 300); if storage is unavailable, searches just don't exclude.
-const SEEN_KEY = "nf:seen-people";
+// Names of people already shown while this page is open, sent with each search so the server
+// finds new people. Kept in memory only: nothing is saved in the browser, and a refresh or a
+// new tab starts fresh. (Older versions kept this list in localStorage; it's deleted below.)
 const MAX_SEEN = 300;
+let shownThisVisit: string[] = [];
 
 function seenNames(): string[] {
-  try {
-    const value: unknown = JSON.parse(localStorage.getItem(SEEN_KEY) ?? "[]");
-    return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string").slice(-MAX_SEEN) : [];
-  } catch {
-    return [];
-  }
+  return shownThisVisit;
 }
 
 function rememberSeen(name: string) {
-  try {
-    const names = seenNames().filter((n) => n !== name);
-    names.push(name);
-    localStorage.setItem(SEEN_KEY, JSON.stringify(names.slice(-MAX_SEEN)));
-  } catch {
-    // storage blocked: nothing to remember
-  }
+  shownThisVisit = [...shownThisVisit.filter((n) => n !== name), name].slice(-MAX_SEEN);
+}
+
+// Remove the list older versions saved in the browser.
+try {
+  globalThis.localStorage?.removeItem("nf:seen-people");
+} catch {
+  // storage blocked: nothing to remove
 }
 
 export function useSearch() {
