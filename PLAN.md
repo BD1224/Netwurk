@@ -53,7 +53,7 @@ wetNork/                            # project root (name may change)
 ├── tests/
 │   └── unit/schemas.test.ts        # Zod schema tests
 └── src/
-    ├── middleware.ts               # sends logged-out users to /login
+    ├── proxy.ts                    # sends logged-out users to /login
     ├── app/                        # ROUTES: each folder = a URL
     │   ├── layout.tsx              # DaisyUI theme, navbar
     │   ├── page.tsx                # redirect → /search
@@ -83,7 +83,7 @@ wetNork/                            # project root (name may change)
     └── lib/
         ├── anthropic.ts            # Anthropic SDK client (server only)
         ├── supabase/client.ts      # browser client (used by useContacts, login)
-        └── supabase/server.ts      # server client (middleware + /api/search login check)
+        └── supabase/server.ts      # server client (proxy + /api/search login check)
 ```
 
 **How the browser reaches data:**

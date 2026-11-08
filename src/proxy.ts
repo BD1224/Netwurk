@@ -1,11 +1,11 @@
-// Runs before every page request.
+// Next.js proxy (formerly "middleware"). Runs before every page request.
 // Refreshes the Supabase login session and redirects logged-out users to /login.
-// It builds its own client (instead of lib/supabase/server.ts) because middleware must
+// It builds its own client (instead of lib/supabase/server.ts) because the proxy must
 // write refreshed cookies onto the outgoing response, which next/headers cannot do here.
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
