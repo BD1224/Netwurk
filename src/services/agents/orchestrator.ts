@@ -5,42 +5,67 @@ import { serperSearch, SearchHit } from "@/lib/serper";
 
 const MAX_PEOPLE = 20;
 const MAX_ROUNDS = 5;
+// extra rounds when the user has already seen people, since some results will be repeats
+const EXTRA_ROUNDS_WITH_EXCLUDE = 4;
 const MAX_QUERY_WORDS = 32; // Google ignores words past about 32
 
 // Stage 1 (no AI): filters -> up to 20 people.
 // Searches LinkedIn through Serper. After each round, the people we already found
 // are excluded with -"Name" so the next search shows new people.
-// exclude: names the user has already been shown. They're excluded the same way (after the
-// people found this search) and never returned, so every search brings new people.
+// exclude: names the user has already been shown. They're never returned, so every search
+// brings new people. A query only fits ~13 -"Name" exclusions (Google's word limit), so the
+// already-seen people who actually turn up in this search's results are excluded first, and
+// when a page holds nobody new we move on to the next page of Google results.
 export async function findCandidates(criteria: SearchCriteria, log?: CallLog, exclude: string[] = []) {
   const base = baseQuery(criteria);
   const found: Candidate[] = [];
   const seen = new Set(exclude.map(n => n.toLowerCase()));
   const seenNewestFirst = [...exclude].reverse();
+  // already-seen people who turned up in this search's results (newest first)
+  const repeats: string[] = [];
+  const maxRounds = MAX_ROUNDS + (exclude.length > 0 ? EXTRA_ROUNDS_WITH_EXCLUDE : 0);
+  let page = 1;
 
-  for(let round = 0; round < MAX_ROUNDS; round++){
-    // newest names first, until the query would get too long
+  for(let round = 0; round < maxRounds; round++){
+    // people found this search, then repeats seen in these results, then the rest of the
+    // user's history, until the query would get too long
     let q = base + " site:linkedin.com/in";
-    const names = [...found.map(f => f.name).reverse(), ...seenNewestFirst];
+    const names = [...found.map(f => f.name).reverse(), ...repeats, ...seenNewestFirst];
+    const used = new Set<string>();
     for(const name of names){
+      const key = name.toLowerCase();
+      if(used.has(key)) continue;
       const add = ' -"' + name + '"';
       if((q + add).split(" ").length > MAX_QUERY_WORDS){
         break;
       }
       q += add;
+      used.add(key);
     }
 
-    const hits = await serperSearch(q, log);
+    const hits = await serperSearch(q, log, page);
+    if(hits.length == 0){
+      break; // Google has nothing more for this search
+    }
     let added = 0;
     for(const h of hits){
       const c = parseLinkedIn(h, criteria);
-      if(c != null && !seen.has(c.name.toLowerCase()) && !alreadyFound(found, c)){
+      if(c == null) continue;
+      if(seen.has(c.name.toLowerCase())){
+        if(!repeats.some(r => r.toLowerCase() == c.name.toLowerCase())) repeats.unshift(c.name);
+        continue;
+      }
+      if(!alreadyFound(found, c)){
         found.push(c);
         added++;
       }
     }
-    if(added == 0 || found.length >= MAX_PEOPLE){
+    if(found.length >= MAX_PEOPLE){
       break;
+    }
+    // nobody new on this page: look further down Google's results next round
+    if(added == 0){
+      page++;
     }
   }
 

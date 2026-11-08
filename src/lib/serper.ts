@@ -9,12 +9,13 @@ export type SearchHit = {
 };
 
 // runs one Google search through Serper (reads SERPER_API_KEY from .env.local)
-export async function serperSearch(q: string, log?: CallLog) {
-  let res = await sendSearch(q);
+// page: which page of Google results (1 = the first 10)
+export async function serperSearch(q: string, log?: CallLog, page = 1) {
+  let res = await sendSearch(q, page);
   // 429 = too many searches at once, so wait a bit and try again (up to 3 times)
   for(let tries = 0; tries < 3 && res.status == 429; tries++){
     await new Promise(r => setTimeout(r, 1000 * (tries + 1)));
-    res = await sendSearch(q);
+    res = await sendSearch(q, page);
   }
   if(!res.ok){
     throw new Error("Serper search failed (" + res.status + ") for: " + q);
@@ -39,10 +40,10 @@ export async function serperSearch(q: string, log?: CallLog) {
   return hits;
 }
 
-function sendSearch(q: string) {
+function sendSearch(q: string, page: number) {
   return fetch("https://google.serper.dev/search", {
     method: "POST",
     headers: { "X-API-KEY": process.env.SERPER_API_KEY!, "Content-Type": "application/json" },
-    body: JSON.stringify({ q: q, num: 10 }),
+    body: JSON.stringify(page > 1 ? { q: q, num: 10, page: page } : { q: q, num: 10 }),
   });
 }
