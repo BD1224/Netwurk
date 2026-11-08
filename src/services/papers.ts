@@ -34,14 +34,56 @@ type Author = {
   topics?: { display_name: string }[];
 };
 
+const AUTHOR_FIELDS = "id,display_name,orcid,works_count,last_known_institutions,topics";
+
+// An ORCID iD is unique to one person, so it needs no guessing. null if OpenAlex doesn't have it.
+async function authorByOrcid(orcid: string): Promise<string | null> {
+  try {
+    const a: Author = await openalex(`/authors/orcid:${orcid}`, { select: "id" });
+    return a?.id ? shortId(a.id) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Authors with this name at the person's school/company. Common names can fall out of the
+// plain name search's top results, so this narrows it. Empty if the org isn't known/found.
+async function authorsAtOrg(person: PersonProfile): Promise<Author[]> {
+  const org = person.university ?? person.company;
+  if (!org) return [];
+  try {
+    const inst = await openalex("/institutions", { search: org, per_page: "1", select: "id" });
+    const instId = inst.results?.[0]?.id;
+    if (!instId) return [];
+    const data = await openalex("/authors", {
+      filter: `display_name.search:${person.fullName},last_known_institutions.id:${shortId(instId)}`,
+      per_page: String(MAX_CANDIDATES),
+      select: AUTHOR_FIELDS,
+    });
+    return data.results ?? [];
+  } catch {
+    return [];
+  }
+}
+
 // Returns the person's OpenAlex author id, or null if no result is clearly them.
 export async function findAuthor(person: PersonProfile): Promise<string | null> {
-  const data = await openalex("/authors", {
-    search: person.fullName,
-    per_page: String(MAX_CANDIDATES),
-    select: "id,display_name,orcid,works_count,last_known_institutions,topics",
+  if (person.orcid) {
+    const id = await authorByOrcid(person.orcid);
+    if (id) return id;
+  }
+
+  const [byName, atOrg] = await Promise.all([
+    openalex("/authors", { search: person.fullName, per_page: String(MAX_CANDIDATES), select: AUTHOR_FIELDS }),
+    authorsAtOrg(person),
+  ]);
+  // org matches first, then the plain name results, no repeats
+  const seen = new Set<string>();
+  const authors: Author[] = [...atOrg, ...((byName.results ?? []) as Author[])].filter((a) => {
+    if (seen.has(a.id)) return false;
+    seen.add(a.id);
+    return true;
   });
-  const authors: Author[] = data.results ?? [];
   if (authors.length === 0) return null;
 
   const list = authors
@@ -63,7 +105,8 @@ export async function findAuthor(person: PersonProfile): Promise<string | null> 
     `company: ${person.company ?? "unknown"}\n` +
     `university: ${person.university ?? "unknown"}\n` +
     `location: ${person.location ?? "unknown"}\n` +
-    `research areas: ${person.researchAreas.join(", ") || "unknown"}\n\n` +
+    `research areas: ${person.researchAreas.join(", ") || "unknown"}\n` +
+    `google scholar profile: ${person.scholarUrl ?? "unknown"}\n\n` +
     `Database entries:\n${list}`;
 
   const answer = pullJson(await callClaude(system, prompt, "low"));
@@ -86,13 +129,22 @@ export async function getPapers(openalexId: string): Promise<PapersResult> {
     openalex("/works", {
       filter: `authorships.author.id:${openalexId}`,
       sort: "publication_date:desc",
-      per_page: String(MAX_PAPERS),
+      per_page: String(MAX_PAPERS * 2), // extra, because duplicates get dropped below
       select: "title,publication_year,doi,primary_location",
     }),
   ]);
 
+  // OpenAlex lists a preprint and its published version as two works with the same title
+  const seen = new Set<string>();
   const papers: Paper[] = (works.results as Work[])
-    .filter((w) => w.title)
+    .filter((w) => {
+      if (!w.title) return false;
+      const key = w.title.trim().toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, MAX_PAPERS)
     .map((w) => ({
       title: w.title!,
       year: w.publication_year,

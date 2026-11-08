@@ -35,6 +35,9 @@ export const PersonProfile = z.object({
   linkedinUrl: z.string().nullable(),
   githubUrl: z.string().nullable(),
   personalSite: z.string().nullable(),
+  // not saved to the database; used to match the person on OpenAlex
+  scholarUrl: z.string().nullish(),
+  orcid: z.string().regex(/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/).nullish(),
   researchAreas: z.array(z.string()),
   talkingPoints: z.string(),
   sources: z.array(z.string()),

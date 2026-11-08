@@ -19,9 +19,10 @@ export async function POST(req: Request) {
   if (!parsed.success) return Response.json({ error: "Invalid request" }, { status: 400 });
   const { person, openalexId } = parsed.data;
 
-  if (openalexId === NO_OPENALEX_MATCH) return Response.json(NOT_FOUND);
+  // a cached "none" is final unless we now have an ORCID to try
+  if (openalexId === NO_OPENALEX_MATCH && !person.orcid) return Response.json(NOT_FOUND);
   try {
-    const id = openalexId ?? (await findAuthor(person));
+    const id = openalexId && openalexId !== NO_OPENALEX_MATCH ? openalexId : await findAuthor(person);
     return Response.json(id ? await getPapers(id) : NOT_FOUND);
   } catch (e) {
     console.error("[papers] failed:", e);

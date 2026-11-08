@@ -17,6 +17,8 @@ function toRow(p: PersonProfile) {
     linkedin_url: p.linkedinUrl ?? null,
     github_url: p.githubUrl ?? null,
     personal_site: p.personalSite ?? null,
+    scholar_url: p.scholarUrl ?? null,
+    orcid: p.orcid ?? null,
     research_areas: p.researchAreas ?? null,
     talking_points: p.talkingPoints ?? null,
     sources: p.sources ?? null,
@@ -38,6 +40,8 @@ function fromRow(r: any): Contact {
     linkedinUrl: r.linkedin_url,
     githubUrl: r.github_url,
     personalSite: r.personal_site,
+    scholarUrl: r.scholar_url ?? null,
+    orcid: r.orcid ?? null,
     // nullable in the database; the app always sees a list / string
     researchAreas: r.research_areas ?? [],
     talkingPoints: r.talking_points ?? "",

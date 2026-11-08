@@ -64,10 +64,11 @@ export function researcherQueries(p: Candidate, c: SearchCriteria) {
   if(c.universities != null && c.universities.length > 0){
     qs.push(who + " " + c.universities[0]);
   }
-  qs.push(who + " github");
+  qs.push(who + " github.com");
   const research = c.researchAreas != null && c.researchAreas.length > 0;
   if(isAcademic(p.title) || research){
     qs.push(who + " google scholar");
+    qs.push(who + " orcid");
   }
   return qs;
 }
