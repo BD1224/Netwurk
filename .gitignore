@@ -7,3 +7,5 @@ node_modules/
 # TypeScript build info
 *.tsbuildinfo
 next-env.d.ts
+# test output has real people in it
+scripts/output/
