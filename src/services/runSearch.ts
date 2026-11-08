@@ -1,9 +1,10 @@
 import "server-only";
 // The search pipeline, called by /api/search. Yields SearchEvents as work progresses.
-// Runs Simon's agent in src/services/agents/ (needs ANTHROPIC_API_KEY):
-//   step 0 "Web search"   -> findCandidates: web search for people matching the filters
-//   steps 1-3             -> researchPerson for each candidate, a few at a time; each one searches
-//                            LinkedIn/GitHub/Scholar results, reads up to 3 pages and checks the email,
+// Runs Simon's agent in src/services/agents/ (needs ANTHROPIC_API_KEY and SERPER_API_KEY):
+//   step 0 "Web search"   -> findCandidates: Google (Serper) searches of LinkedIn results; names and
+//                            titles come from the result titles only, LinkedIn itself is never opened
+//   steps 1-3             -> researchPerson for each candidate, a few at a time: a few Google searches
+//                            (LinkedIn, GitHub, Scholar...), then Claude Haiku reads only those results;
 //                            then findPhoto looks for a headshot (never from LinkedIn).
 //                            Steps 1-3 advance as a third, two thirds, then all of the people finish.
 //   Each person is sent to the browser as soon as their research is done.
@@ -25,9 +26,10 @@ export async function* runSearch(
   signal?: AbortSignal,
   exclude: string[] = [],
 ): AsyncGenerator<SearchEvent> {
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error("[search] ANTHROPIC_API_KEY is not set in .env.local");
-    yield { type: "error", message: "Search isn't set up yet: the server has no Claude API key." };
+  const missing = ["ANTHROPIC_API_KEY", "SERPER_API_KEY"].filter((key) => !process.env[key]);
+  if (missing.length > 0) {
+    console.error(`[search] missing in .env.local: ${missing.join(", ")}`);
+    yield { type: "error", message: "Search isn't set up yet: the server is missing an API key." };
     return;
   }
   yield* runAgentSearch(criteria, signal, exclude);

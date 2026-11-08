@@ -6,7 +6,7 @@ export const client = new Anthropic();
 
 export const MODEL = "claude-haiku-5-5";
 
-// optional record of what Claude did, used by the test scripts
+// optional record of what happened, used by the test scripts
 export type CallLog = {
   searches: string[];
   fetches: string[];
@@ -19,81 +19,40 @@ export type CallLog = {
   searchHits?: string[];
 };
 
-// Sends one prompt, lets Claude use its web tools, and returns all the text it wrote.
-// Web tools run on Anthropic's side; if they run long Claude stops with "pause_turn"
-// and we just send the conversation back so it keeps going.
+// Sends one prompt to Claude (no tools; Serper does the searching) and returns its text.
 export async function callClaude(
   system: string,
   prompt: string,
-  tools: Anthropic.ToolUnion[],
   effort: "low" | "medium" | "high",
   log?: CallLog,
   signal?: AbortSignal // cancels the request when the user stops the search
 ) {
-  const messages: Anthropic.MessageParam[] = [{ role: "user", content: prompt }];
+  const stream = client.messages.stream({
+    model: MODEL,
+    max_tokens: 16000,
+    output_config: { effort: effort },
+    system: system,
+    messages: [{ role: "user", content: prompt }],
+  }, { signal: signal });
+  const res = await stream.finalMessage();
 
-  for(let i = 0; i < 5; i++){
-    const stream = client.messages.stream({
-      model: MODEL,
-      max_tokens: 64000,
-      output_config: { effort: effort },
-      system: system,
-      tools: tools,
-      messages: messages,
-    }, { signal: signal });
-    const res = await stream.finalMessage();
-
-    if(log != null){
-      for(const b of res.content){
-        if(b.type == "server_tool_use" && b.name == "web_search"){
-          log.searches.push((b.input as any).query);
-        }
-        if(b.type == "server_tool_use" && b.name == "web_fetch"){
-          log.fetches.push((b.input as any).url);
-        }
-        // how many results each search actually returned
-        if(b.type == "web_search_tool_result"){
-          if(log.searchResults == null){
-            log.searchResults = [];
-          }
-          if(log.searchHits == null){
-            log.searchHits = [];
-          }
-          if(Array.isArray(b.content)){
-            log.searchResults.push(b.content.length);
-            for(const r of b.content){
-              log.searchHits.push(r.title + "  |  " + r.url);
-            }
-          } else {
-            log.searchResults.push(0);
-          }
-        }
-      }
-      log.inputTokens += res.usage.input_tokens;
-      log.outputTokens += res.usage.output_tokens;
-      log.stopReason = res.stop_reason ?? "";
-    }
-
-    if(res.stop_reason == "pause_turn"){
-      messages.push({ role: "assistant", content: res.content });
-      continue;
-    }
-    if(res.stop_reason == "refusal"){
-      throw new Error("Claude refused the request");
-    }
-
-    let text = "";
-    for(const b of res.content){
-      if(b.type == "text"){
-        text += b.text;
-      }
-    }
-    if(log != null){
-      log.rawText = text;
-    }
-    return text;
+  if(res.stop_reason == "refusal"){
+    throw new Error("Claude refused the request");
   }
-  throw new Error("Claude never finished (paused too many times)");
+
+  let text = "";
+  for(const b of res.content){
+    if(b.type == "text"){
+      text += b.text;
+    }
+  }
+  if(log != null){
+    log.inputTokens += res.usage.input_tokens;
+    log.outputTokens += res.usage.output_tokens;
+    log.stopReason = res.stop_reason ?? "";
+    log.rawText = text;
+  }
+  return text;
 }
 
 // Claude's answer is JSON, but sometimes it has extra words or ``` around it.
