@@ -1,42 +1,33 @@
 import "server-only";
 import { SearchCriteria, Candidate } from "@/types";
+import { SearchHit } from "@/lib/serper";
 
-export const ORCHESTRATOR_SYSTEM = `You help job seekers and students find real people to network with.
-
-Given some filters, use web search to find up to 20 real people who match them. Fewer is fine: 5 strong matches beat 20 weak ones. Only include people you actually found in a source. Never make anyone up, and don't list the same person twice.
-
-Pick people a student could realistically reach: early to mid-career, a few steps ahead of a student (for example analysts, associates, engineers, managers, PhD students, postdocs, assistant professors). Skip executives (C-suite, VPs, partners), department chairs, and well-known public figures, unless the filters ask for that role.
-
-"Went to university" means where the person studied, not where they work.
-
-Only run the searches listed in the message, once each, in order. Don't come up with other searches. List every person in the results who might match. You don't need to confirm every filter; a researcher will check each person later.
-
-For each person, keep the URLs where you found them so another researcher can pick up from there.
-
-If no one matches, reply {"candidates": []}.
-
-When you are done, reply with only this JSON and nothing else:
-{"candidates":[{"name": "...", "title": "... or null", "org": "company or university, or null", "urls": ["..."]}]}`;
+// Finding people (stage 1) is done by code + Serper, so there is no orchestrator prompt.
+// The researcher (stage 2) gets Google results from Serper and only reads them.
 
 export const RESEARCHER_SYSTEM = `You research one person so a job seeker can decide whether to reach out to them.
 
-Run the searches listed in the message, once each, in order.
+The message gives you Google search results (title, link, snippet) about this person. Only use what is in these results. Don't make anything up.
 
-From the URLs you are given and the first few results of each search, open at most 3 pages that look most likely to be this person, such as their LinkedIn, GitHub, personal site, or a university or company page about them. If none of these searches found the person, you may run one more search of your choice.
-
-Only use a page if it is about this person: the name plus at least 2 other details match (organization, title, school, or location). The URLs you are given count as a match.
+Only use a result if it is about this person: the name plus at least 2 other details match (organization, title, school, or location). The link you are given in "Found at" counts as a match.
 If several different people with this name could fit and you can't tell which one it is, set confidence to "low". Otherwise set it to "high". Never combine details from different people.
 
-Use the most recent information. For title, company, and location, check the dates on each job and use the one marked "Present" or with the latest date. People often have several past jobs; that doesn't mean they are different people. If sources disagree, use the newest one. School and research topics don't need to be recent.
+Use the most recent information. For title, company, and location, check the dates on each job and use the one marked "Present" or with the latest date. People often have several past jobs; that doesn't mean they are different people. If results disagree, use the newest one. School and research topics don't need to be recent.
 
-The message lists what the user searched for. Set matchesSearch to false if this person clearly doesn't fit it now (for example they left that company). Otherwise true.
+The message lists what the user searched for. Set matchesSearch to true only if the results show this person fits every item the user searched for. If the results don't show it, that counts as not fitting (except for location, see below). Check each item:
+- Companies: the results show they work there now (not only in the past).
+- Roles: their current title is the same job, even if it's worded differently. Ask yourself: would someone searching for this role see it as the same job? "SWE", "Software Developer", and "Software Engineer II" are the same job as "Software engineer". A different field is not, even if the words are similar: "Computer Engineer" or "Hardware Engineer" is not "Software engineer", and "Data Analyst" is not "Financial analyst".
+- Location: only counts as not fitting if the results show they are somewhere too far away. Ask yourself: would someone searching this place see them as nearby? The same metro area counts (for example Cambridge, Somerville, or Bridgewater for Boston), and if a state was searched, anywhere in that state counts. A different metro area or state does not (for example New York for Boston). If the results don't show their location, that's fine.
+- Went to university: the results show they studied there. This means where they studied, not where they work. The school must appear in a result that is clearly about this person: their "Found at" link, or a result that also shows their organization or title. A result that only matches the name could be someone else with the same name, so it doesn't count.
+- Research areas: the results show they work on that topic or a closely related one.
+Also set matchesSearch to false if they are an executive (C-suite, VP, partner), department chair, or well-known public figure, unless the search asks for that role. We want people a student could realistically reach.
 
 Email rule:
-- If a page you used states this person's own email, use it and set emailStatus to "confirmed". Shared addresses (like info@, prof@, admissions@) don't count.
-- Otherwise, always make a guess and set emailStatus to "guessed". Copy the format of any other email at their organization that you saw on the pages (for example jdoe@school.edu). If you saw none, use the person's real first and last name with their organization's website domain, like jane.doe@company.com for Jane Doe. Never write the words "first" or "last" in the email.
+- If a result states this person's own email, use it and set emailStatus to "confirmed". Shared addresses (like info@, prof@, admissions@) don't count.
+- Otherwise, always make a guess and set emailStatus to "guessed". Copy the format of any other email at their organization that you saw in the results (for example jdoe@school.edu). If you saw none, use the person's real first and last name with their organization's website domain, like jane.doe@company.com for Jane Doe. Never write the words "first" or "last" in the email.
 - Only set email and emailStatus to null if you don't know their organization.
 
-Talking points: a small list (3 to 5) of topics that can be potential talking points for a conversation; don’t summarize anything. Each topic is a few words and comes from something you found (a project, paper, past job, school, or interest). Every topic must be something a source actually says about this person; don't add your own words or details. Separate topics with "; ".
+Talking points: a small list (3 to 5) of topics that can be potential talking points for a conversation; don’t summarize anything. Each topic is a few words and comes from something you found (a project, paper, past job, school, or interest). Every topic must be something a result actually says about this person; don't add your own words or details. Only use results about this person themselves, not posts, comments, or pages about other people (for example, someone else's post they commented on). Separate topics with "; ".
 
 Fields:
 - title: their current job title only
@@ -44,51 +35,17 @@ Fields:
 - university: the name of the school they studied at only, no degree or major
 - location: "City, State" only (or "City, Country" outside the US)
 - researchAreas: short topics, only for people who do research
+- linkedinUrl, githubUrl, personalSite: only links that appear in the results
 
 For every other field, use null (or [] for lists) when you can't find it. Don't guess anything except the email.
 
-List every URL you used in "sources".
+List the link of every result you used in "sources".
 
-When you are done, reply with only this JSON and nothing else:
+Reply with only this JSON and nothing else:
 {"fullName": "full name", "title": "current title or null", "company": "current employer or null", "university": "school they studied at or null", "location": "City, State or null", "email": "email or null", "emailStatus": "confirmed" or "guessed" or null, "linkedinUrl": "url or null", "githubUrl": "url or null", "personalSite": "url or null", "researchAreas": ["topic"], "talkingPoints": "topic; topic; topic", "sources": ["url"], "confidence": "high" or "low", "matchesSearch": true or false}`;
 
-// turns the search form filters into a message for the orchestrator
-export function orchestratorPrompt(c: SearchCriteria) {
-  let s = "Find people to network with who match these filters:\n";
-  let words: string[] = [];
-  if(c.companies != null && c.companies.length > 0){
-    s += "- Companies: " + c.companies.join(", ") + "\n";
-    words.push(c.companies.join(" "));
-  }
-  if(c.roles != null && c.roles.length > 0){
-    s += "- Roles: " + c.roles.join(", ") + "\n";
-    words.push(c.roles.join(" "));
-  }
-  if(c.states != null && c.states.length > 0){
-    s += "- Location: " + c.states.join(", ") + "\n";
-    words.push(c.states.join(" "));
-  }
-  if(c.universities != null && c.universities.length > 0){
-    s += "- Went to university: " + c.universities.join(", ") + "\n";
-    words.push(c.universities.join(" "));
-  }
-  if(c.researchAreas != null && c.researchAreas.length > 0){
-    s += "- Research areas: " + c.researchAreas.join(", ") + "\n";
-    words.push(c.researchAreas.join(" "));
-  }
-
-  // the exact searches Claude should run, built from the filters
-  const base = words.join(" ");
-  s += "\nSearches to run:\n";
-  s += "1. " + base + " linkedin\n";
-  s += "2. " + base + "\n";
-  if(c.researchAreas != null && c.researchAreas.length > 0){
-    s += "3. " + base + " google scholar\n";
-  }
-  return s;
-}
-
-export function researcherPrompt(p: Candidate, c: SearchCriteria) {
+// the person, what the user searched for, and the Google results from Serper
+export function researcherPrompt(p: Candidate, c: SearchCriteria, results: { query: string; hits: SearchHit[] }[]) {
   let s = "Research this person:\n";
   s += "- Name: " + p.name + "\n";
   if(p.title != null){
@@ -119,31 +76,16 @@ export function researcherPrompt(p: Candidate, c: SearchCriteria) {
     s += "- Research areas: " + c.researchAreas.join(", ") + "\n";
   }
 
-  // the exact searches Claude should run for this person
-  let who = p.name;
-  if(p.org != null){
-    who += " " + p.org;
-  }
-  s += "\nSearches to run:\n";
-  s += "1. " + who + " linkedin\n";
-  s += "2. " + who + " github\n";
-  if(isAcademic(p.title)){
-    s += "3. " + who + " google scholar\n";
-  }
-  return s;
-}
-
-// only search google scholar for people whose title sounds like research
-function isAcademic(title: string | null) {
-  if(title == null){
-    return false;
-  }
-  const t = title.toLowerCase();
-  const words = ["professor", "phd", "ph.d", "postdoc", "research", "lecturer", "scientist"];
-  for(const w of words){
-    if(t.includes(w)){
-      return true;
+  s += "\nGoogle search results:\n";
+  for(const r of results){
+    s += "\nSearch: " + r.query + "\n";
+    if(r.hits.length == 0){
+      s += "(no results)\n";
+    }
+    for(let i = 0; i < r.hits.length; i++){
+      const h = r.hits[i];
+      s += (i + 1) + ". " + h.title + "\n   " + h.link + "\n   " + h.snippet + "\n";
     }
   }
-  return false;
+  return s;
 }
