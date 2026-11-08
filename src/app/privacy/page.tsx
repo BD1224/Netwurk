@@ -57,7 +57,7 @@ export default function PrivacyPage() {
         <ul className="m-0 flex list-disc flex-col gap-1.5 pl-5">
           <li>Supabase: accounts and contact books (database and sign-in)</li>
           <li>Vercel: hosting</li>
-          <li>Anthropic (Claude): reads search results and writes the summaries</li>
+          <li>Google (Gemini): reads search results and writes the summaries</li>
           <li>Serper: Google search results</li>
           <li>GitHub and Gravatar: public profiles and photos</li>
           <li>Google: optional sign-in with your Google account</li>

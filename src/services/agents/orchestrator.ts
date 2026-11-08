@@ -1,6 +1,6 @@
 import "server-only";
 import { SearchCriteria, Candidate } from "@/types";
-import { CallLog } from "@/lib/anthropic";
+import { CallLog } from "@/lib/ai";
 import { serperSearch, SearchHit } from "@/lib/serper";
 
 const MAX_PEOPLE = 20;

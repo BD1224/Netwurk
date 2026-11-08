@@ -1,5 +1,5 @@
 // POST /api/papers - a person's recent papers from OpenAlex. Server-only because the
-// first lookup asks Haiku (secret key) which OpenAlex author is this person.
+// first lookup asks Gemini (secret key) which OpenAlex author is this person.
 // Body: { person: PersonProfile, openalexId?: string }
 //   - openalexId is an id (already matched): skip matching, just fetch papers.
 //   - openalexId is "none" (already checked, no match): return no papers right away.

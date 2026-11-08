@@ -1,7 +1,7 @@
 "use client";
 // Loads the extras for one open person (search overlay or contact panel):
 //   repos  - straight from GitHub's public API (browser), using the username in githubUrl
-//   papers - POST /api/papers (server: OpenAlex + a Haiku match the first time)
+//   papers - POST /api/papers (server: OpenAlex + a Gemini match the first time)
 // Each starts as "loading" and ends as a list or "error", which is what ExtrasGrid expects.
 // Results are kept in memory per key for the whole visit, so reopening someone is instant.
 //

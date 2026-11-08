@@ -1,5 +1,5 @@
 import "server-only";
-import { CallLog } from "./anthropic";
+import { CallLog } from "./ai";
 
 // one Google result from Serper
 export type SearchHit = {
